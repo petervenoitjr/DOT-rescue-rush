@@ -4,6 +4,7 @@
 //  v4 (2026-11-10): DOT-UI look, AHAD Biter / Beamer / Rocket Fist / Crab art from DO-T RUSH, 6 bug fixes, playtest log.
 //  v4.3 (2026-11-12): DO-T RUSH sound (its beeps + victory.m4a; assets/sfx packed by tools/build.py), SOUND / MUSIC toggles.
 //  v4.4 (2026-11-12): AHAD music from the Drive AHAD-Audio folder (title, sector, alarm/boss, ducts).
+//  v4.5 (2026-11-12): our own soundtrack, composed live in code (MUSIC): one riff, 12 sections that follow the game, mood layers that ease in (tension, heartbeat, hope, clock, calm). Old music files scrapped.
 //  Paste this whole file into the p5.js web editor (p5 2.x) as sketch.js.
 // =====================================================================
 
@@ -29,12 +30,10 @@ const SETTINGS = {
   // SOUND: the DO-T RUSH setup. Sound files in assets/sfx/ are built INTO this sketch by tools/build.py (EMBED_ASSETS at the bottom).
   //   'files' says which DO-T RUSH sound plays for each game event: its sound file if there is one, else DO-T RUSH's own beep (RUSH_BEEPS),
   //   else this game's synthesized sound in THEME.sfx (for events DO-T RUSH has no sound for).
-  // MUSIC: files in assets/music/ (too big to build in). In the p5 editor, upload them (Sketch > Upload file) with these names.
+  // MUSIC: our own soundtrack, composed live in code. Its settings are in MUSIC (just below SETTINGS).
   audio: {
-    volume: 0.7, sfxVolume: 0.6, musicVolume: 0.45,
+    volume: 0.7, sfxVolume: 0.6,
     files: { zap: 'zap', kill: 'kill', leap: 'jump', throw: 'fist', hurt: 'hurt', shoot: 'shoot', pick: 'byte', tap: 'ui', bash: 'block', bless: 'tool', victory: 'victory', step: 'turn' },   // victory = boss down / all 8 safe (big moments only)
-    // AHAD music (Google Drive: AHAD DOT 21 / AHAD Workshop / AHAD-Audio). File names in assets/music/; a missing track just stays quiet.
-    music: { title: 'AHAD.mp3', play: 'AHAD-JFobbsTunes1_1_01.mp3', alarm: 'AHAD-JFobbsTunes1_2_01.mp3', boss: 'AHAD-JFobbsTunes1_2_01.mp3', duct: 'AHAD-JFobbsTunes1_4_01.mp3' }
   },
   timer: { turns: 650, alarmAllAt: 0.35 },   // SELF-DESTRUCT: turns before the station blows. Below 35% left, every dark sector's alarm goes off
   alarm: { every: 7, max: 3 },          // alarm sectors: a new enemy crawls out every 7 turns (max 3) until the lights are back
@@ -64,6 +63,42 @@ const DEBUG_SCENARIOS = [
   { id: 'winScreen', label: 'WIN SCREEN', note: 'Preview the ending card' },
   { id: 'loseScreen', label: 'LOSE SCREEN', note: 'Preview STATION LOST' }
 ];
+
+// ---- MUSIC: our own soundtrack, composed live in code (no files). One riff runs through every section.
+//      The game picks the SECTION from what is happening (musicSection()), and LAYERS fade in and out on top of it
+//      (moodsNow()): an enemy creeping closer, DO-T hurt, babies in his arms, the self-destruct clock.
+//      Sound: spacious, lots of reverb, like a creepy empty warehouse.
+const MUSIC = {
+  volume: 0.5,                       // the whole soundtrack (sound effects have their own volume)
+  reverb: { seconds: 4.8, wet: 0.6 },// the warehouse: how long the echo hangs, and how loud it is
+  root: 38,                          // the key: MIDI note 38 = D. Everything is built on it
+  riff: [0, null, 0, 3, null, 5, 3, null, 7, null, 5, 3, 2, null, 0, null],   // THE RIFF: 2 bars of 8th notes, semitones above the root (null = rest)
+  ease: 2.5,                         // seconds a layer takes to fade in or out
+  dangerHold: 4,                     // seconds the Enemy Nearby music stays after the danger has passed (so it doesn't flicker)
+  // SECTIONS: bpm and how loud each sits. key 'major' turns the riff's minor notes major.
+  sections: {
+    intro:   { bpm: 72,  key: 'minor', gain: 0.8 },    // title screen: heartbeat kick, slow pads, sparse bells, the riff whispered once
+    comic:   { bpm: 60,  key: 'minor', gain: 0.7 },    // how to play / pause: hushed pads, soft kick on one, the riff hinted in bells
+    chapter: { bpm: 66,  key: 'minor', gain: 0.9 },    // The Dock: rich pads, sub bass plays the riff slowly, soft kick and clap
+    explore: { bpm: 98,  key: 'minor', gain: 0.85 },   // a sector: four-on-the-floor, rolling saw bass riff, plucky arpeggio, slow build
+    stealth: { bpm: 60,  key: 'minor', gain: 0.9 },    // sleeping Crab / maintenance ducts: cold drone, heartbeat, riff as a faint sub pulse
+    enemy:   { bpm: 132, key: 'minor', gain: 0.85 },   // an enemy can reach DO-T: the riff faster and harder, 16th bass pump, snare fills
+    repair:  { bpm: 96,  key: 'major', gain: 0.85 },   // circuit puzzle: major lift, half-time kick, the riff bright and playful
+    dock:    { bpm: 120, key: 'minor', gain: 0.85, maxBpm: 150 },   // self-destruct below 35%: arcade energy, speeds up to maxBpm as time runs out
+    boss:    { bpm: 144, key: 'minor', gain: 0.75 },   // Crab awake: riff with an octave jump, double kick, rave stabs, risers into crashes
+    drop:    { bpm: 144, key: 'minor', gain: 1.0 },    // both claws cracked, eye open: everything at once, the biggest moment
+    ending:  { bpm: 78,  key: 'major', gain: 0.9 },    // all safe: warm lush pads, the riff tender an octave up, bittersweet and hopeful
+    outro:   { bpm: 72,  key: 'minor', gain: 0.8 }     // station lost: the riff once more, quiet, one kick, fade
+  },
+  // MOOD LAYERS: extra instruments that ease in on top of whatever section is playing (0 = silent, 1 = full).
+  moods: {
+    tension: { range: 5, gain: 0.8 },   // an enemy within 5 hexes: a cold high drone and a ticking shaker, louder the closer it gets
+    heart:   { gain: 0.9 },             // DO-T on his last heart: his own heartbeat
+    hope:    { gain: 0.7 },             // carrying babies: soft high bells (one baby = half, arms full = full)
+    clock:   { from: 0.5, gain: 0.6 },  // self-destruct clock under 50% left: a ticking clock, louder as time runs out
+    calm:    { drums: 0.35 }            // a cleared sector: the drums drop back to 35% and the pads open up
+  }
+};
 
 // ---- the light-haters. W = Biter and B = Beamer are the AHAD enemy sheet's names and art (from DO-T RUSH).
 //      L pouncer and R brute are still placeholders: drawn as Biter variants until AHAD gives them their own sheet ----
@@ -1564,7 +1599,7 @@ function outlinedText(s, x, y) { const c = drawingContext.fillStyle; stroke(THEM
 // =====================================================================
 //  SOUND (WebAudio, synthesized; no files)
 // =====================================================================
-const SND = { ctx: null, master: null, on: true, music: true, buffers: {}, player: null, track: null };
+const SND = { ctx: null, master: null, on: true, music: true, buffers: {}, band: null };
 // sound files built into the sketch (EMBED_ASSETS, written by tools/build.py) are decoded once, after the first tap
 function sndLoadFiles() {
   const em = typeof EMBED_ASSETS !== 'undefined' ? EMBED_ASSETS : {};
@@ -1590,19 +1625,232 @@ function playFile(name, vol) {
   const buf = SND.buffers[name]; if (!buf) { return false; }
   const s = SND.ctx.createBufferSource(), g = SND.ctx.createGain(); s.buffer = buf; g.gain.value = (vol || 1) * SETTINGS.audio.sfxVolume / SETTINGS.audio.volume; s.connect(g); g.connect(SND.master); s.start(); return true;
 }
-// MUSIC: one looping <audio> track: assets/music/<file> next to the page, or <file> uploaded to the p5 editor.
-function musicWanted() {
-  const M = SETTINGS.audio.music; if (G.scene !== 'play' || !G.room) { return M.title; }
-  if (G.room.def.boss && G.room.enemies.length) { return M.boss; } if (alarmOn()) { return M.alarm || M.play; } if (G.room.def.parent) { return M.duct || M.play; } return M.play;
+// =====================================================================
+//  LIVE MUSIC: our own soundtrack, composed in code with Web Audio. Settings: MUSIC (top of the sketch).
+//  makeMusic(ctx, out) builds the band on any audio context (the live one, or an offline one for previews).
+//  Every instrument plays into a LAYER (drums, bass, pad, arp, bell, stab, drone, + the mood layers);
+//  each layer has its own volume that eases toward a target, so instruments fade in and out smoothly.
+// =====================================================================
+const MUSIC_LAYERS = ['drums', 'bass', 'pad', 'arp', 'bell', 'stab', 'drone', 'tension', 'heart', 'hope', 'clock'];
+function mtof(m) { return 440 * Math.pow(2, (m - 69) / 12); }
+function warehouseIR(c) {   // the reverb: a long, dark, empty-room tail with a few early reflections off far walls
+  const sec = MUSIC.reverb.seconds, n = Math.floor(c.sampleRate * sec), b = c.createBuffer(2, n, c.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = b.getChannelData(ch); let lp = 0;
+    for (let i = 0; i < n; i++) { const t = i / n; lp += ((Math.random() * 2 - 1) - lp) * (0.35 - 0.25 * t); d[i] = lp * Math.pow(1 - t, 2.6) * (i < c.sampleRate * 0.025 ? 0 : 1); }
+    for (const [at, a] of [[0.031, 0.5], [0.057, 0.35], [0.089, 0.28], [0.13, 0.2]]) { const k = Math.floor((at + ch * 0.004) * c.sampleRate); d[k] += a; }
+  }
+  return b;
+}
+function makeMusic(c, out) {
+  const M = { c, sec: null, step: 0, bar: 0, next: 0, last: 0, riffPos: 0, notes: 0, whispered: false, L: {}, lv: {}, offT: {} };
+  M.bus = c.createGain(); M.bus.gain.value = MUSIC.volume;
+  const comp = c.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 3; comp.attack.value = 0.01; comp.release.value = 0.3;
+  M.bus.connect(comp); comp.connect(out);
+  const verb = c.createConvolver(); verb.buffer = warehouseIR(c); const verbOut = c.createGain(); verbOut.gain.value = MUSIC.reverb.wet; verb.connect(verbOut); verbOut.connect(M.bus);
+  M.secG = c.createGain(); M.secG.connect(M.bus);                     // the section's level (dips and swells in on a change)
+  const dry = c.createGain(); dry.connect(M.secG); const send = c.createGain(); send.gain.value = 0.55; dry.connect(send); send.connect(verb);
+  const wet = c.createGain(); const wd = c.createGain(); wd.gain.value = 0.3; wet.connect(wd); wd.connect(M.secG); wet.connect(verb);   // bells, pads: mostly room
+  for (const name of MUSIC_LAYERS) {
+    const gd = c.createGain(), gw = c.createGain(), v = /^(tension|heart|hope|clock)$/.test(name) ? 0 : 1;
+    gd.gain.value = v; gw.gain.value = v; gd.connect(dry); gw.connect(wet); M.L[name] = { dry: gd, wet: gw }; M.lv[name] = v; M.offT[name] = v ? 0 : -99;
+  }
+  M.noise = c.createBuffer(1, c.sampleRate, c.sampleRate); { const d = M.noise.getChannelData(0); for (let i = 0; i < d.length; i++) { d[i] = Math.random() * 2 - 1; } }
+  // set where each layer is heading (0..1+); it eases there over MUSIC.ease seconds
+  M.mix = (targets, now) => {
+    for (const name of MUSIC_LAYERS) {
+      const v = targets[name] === undefined ? 1 : Math.max(0, targets[name]); if (Math.abs(v - M.lv[name]) < 0.01) { continue; }
+      if (v < 0.02 && M.lv[name] >= 0.02) { M.offT[name] = now; }
+      M.lv[name] = v; for (const k of ['dry', 'wet']) { M.L[name][k].gain.setTargetAtTime(v, now, MUSIC.ease / 3); }
+    }
+  };
+  const live = (name, t) => M.lv[name] >= 0.02 || t < M.offT[name] + MUSIC.ease * 1.5;   // still worth playing notes into this layer?
+
+  // ---- the band (every voice names its layer) ----
+  function osc(L, type, f, t, dur, v, o) {
+    o = o || {}; if (!live(L, t)) { return; } const os = c.createOscillator(), g = c.createGain(); os.type = type; os.frequency.setValueAtTime(f, t);
+    if (o.f1) { os.frequency.exponentialRampToValueAtTime(o.f1, t + (o.fT || dur)); } if (o.det) { os.detune.value = o.det; }
+    let n = os; if (o.lp) { const fl = c.createBiquadFilter(); fl.type = 'lowpass'; fl.Q.value = o.q || 0.7; fl.frequency.setValueAtTime(o.lp0 || o.lp, t); if (o.lp0) { fl.frequency.exponentialRampToValueAtTime(o.lp, t + (o.lpT || dur * 0.5)); } os.connect(fl); n = fl; }
+    g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(v, t + (o.a || 0.005)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    n.connect(g); g.connect(o.wet ? M.L[L].wet : M.L[L].dry); os.start(t); os.stop(t + dur + 0.05); M.notes++;
+  }
+  function noise(L, t, dur, v, type, f, o) {
+    o = o || {}; if (!live(L, t)) { return; } const sr = c.createBufferSource(); sr.buffer = M.noise; sr.loop = true; const fl = c.createBiquadFilter(); fl.type = type; fl.Q.value = o.q || 0.8;
+    fl.frequency.setValueAtTime(f, t); if (o.f1) { fl.frequency.exponentialRampToValueAtTime(o.f1, t + dur); }
+    const g = c.createGain(); if (o.rise) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + dur); g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.03); }
+    else { g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur); }
+    sr.connect(fl); fl.connect(g); g.connect(o.wet ? M.L[L].wet : M.L[L].dry); sr.start(t, Math.random() * 0.5); sr.stop(t + dur + 0.05); M.notes++;
+  }
+  const kick = (t, v, soft, L) => osc(L || 'drums', 'sine', soft ? 95 : 150, t, 0.45, v, { f1: soft ? 38 : 44, fT: 0.12 });
+  const heart = (t, v, beat, L) => { kick(t, v, true, L); kick(t + Math.min(0.3, beat * 0.3), v * 0.6, true, L); };
+  const clap = (t, v) => { for (const d of [0, 0.012, 0.024]) { noise('drums', t + d, 0.03, v, 'bandpass', 1300); } noise('drums', t + 0.03, 0.22, v * 0.6, 'bandpass', 1200, { wet: 1 }); };
+  const hat = (t, v, L) => noise(L || 'drums', t, 0.04, v, 'highpass', 7500);
+  const snare = (t, v) => { noise('drums', t, 0.16, v, 'bandpass', 1900, { q: 0.6 }); osc('drums', 'triangle', 190, t, 0.09, v * 0.6, { f1: 150 }); };
+  const crash = (t, v) => noise('drums', t, 2.6, v, 'highpass', 3500, { wet: 1 });
+  const riser = (t, dur, v) => noise('drone', t, dur, v, 'bandpass', 300, { f1: 7000, q: 2, rise: 1, wet: 1 });
+  const pad = (t, dur, ms, v, lp, a) => { for (const m of ms) { for (const d of [-9, 9]) { osc('pad', 'sawtooth', mtof(m), t, dur, v / ms.length, { det: d, lp: lp * (M.open || 1), a: a || dur * 0.4, wet: 1 }); } } };
+  const bell = (t, m, v, L) => { osc(L || 'bell', 'sine', mtof(m), t, 2.8, v, { wet: 1 }); osc(L || 'bell', 'sine', mtof(m) * 2.76, t, 1.2, v * 0.25, { wet: 1 }); };
+  const sub = (t, m, dur, v) => osc('bass', 'sine', mtof(m), t, dur, v, { a: 0.02 });
+  const bass = (t, m, dur, v, lp) => osc('bass', 'sawtooth', mtof(m), t, dur, v, { lp, lp0: lp * 3, lpT: dur * 0.6, q: 2, a: 0.004 });
+  const pluck = (t, m, v) => osc('arp', 'square', mtof(m), t, 0.22, v, { lp: 700, lp0: 4200, lpT: 0.15, a: 0.002 });
+  const stab = (t, m, v) => { for (const i of [0, 7, 12]) { osc('stab', 'sawtooth', mtof(m + i), t, 0.2, v / 3, { lp: 900, lp0: 5200, lpT: 0.15, a: 0.003 }); } };
+  const drone = (t, dur, m, v, lp, L) => { L = L || 'drone'; osc(L, 'sawtooth', mtof(m), t, dur, v, { det: -11, lp, a: dur * 0.45, wet: 1 }); osc(L, 'sawtooth', mtof(m), t, dur, v, { det: 11, lp, a: dur * 0.45, wet: 1 }); if (m < 60) { osc(L, 'sine', mtof(m - 12), t, dur, v * 1.3, { a: dur * 0.45 }); } };
+  const tick = (t, f, v) => osc('clock', 'square', f, t, 0.03, v, { lp: f * 1.5 });
+
+  // ---- the harmony and the riff ----
+  const CH = { minor: [[0, 3, 7], [-4, 0, 3], [3, 7, 10], [-2, 2, 5]], major: [[0, 4, 7], [5, 9, 12], [-3, 0, 4], [7, 11, 14]] };   // i VI III VII  /  I IV vi V
+  const majorize = (n) => (n === 3 ? 4 : n === 8 ? 9 : n === 10 ? 11 : n);
+  const riffAt = (i, key) => { const n = MUSIC.riff[((i % 16) + 16) % 16]; return n === null || n === undefined ? null : (key === 'major' ? majorize(n) : n); };
+  M.speed = 0;   // 0..1: the Dock Mash speed-up (set by musicTick from the self-destruct clock)
+  M.bpm = (sec) => { const S = MUSIC.sections[sec]; return S.maxBpm ? S.bpm + (S.maxBpm - S.bpm) * M.speed : S.bpm; };
+
+  // one 16th-note step of a section
+  function step(sec, s, bar, t) {
+    const S = MUSIC.sections[sec], g = S.gain, beat = 60 / M.bpm(sec), six = beat / 4, barLen = beat * 4, key = S.key, R = MUSIC.root;
+    const ch = CH[key][bar % 4], i8 = (bar % 2) * 8 + (s >> 1), on8 = s % 2 === 0, rn = riffAt(i8, key), build = Math.min(1, bar / 16);
+    if (rn !== null) { M.last = rn; }
+    if (sec === 'intro') {
+      if (s === 0) { heart(t, 0.5 * g, beat); pad(t, barLen * 1.2, ch.map((n) => R + 24 + n), 0.13 * g, 700, barLen * 0.5); }
+      if (s === 8 && bar % 2 === 1 && Math.random() < 0.7) { bell(t, R + 36 + ch[Math.floor(Math.random() * 3)], 0.09 * g); }
+      if (!M.whispered && bar >= 2 && bar < 4 && on8 && rn !== null) { bass(t, R + 12 + rn, six * 1.8, 0.07 * g, 320); sub(t, R + rn, six * 1.8, 0.08 * g); }
+      if (bar >= 4) { M.whispered = true; }
+    } else if (sec === 'comic') {
+      if (s === 0) { kick(t, 0.25 * g, true); pad(t, barLen * 1.2, ch.map((n) => R + 24 + n), 0.09 * g, 480, barLen * 0.6); }
+      if (s % 4 === 0 && bar % 2 === 0 && rn !== null) { bell(t, R + 36 + rn, 0.06 * g); }
+    } else if (sec === 'chapter') {
+      if (s === 0) { pad(t, barLen * 1.2, ch.map((n) => R + 24 + n).concat([R + 36 + ch[0]]), 0.15 * g, 1400, barLen * 0.4); kick(t, 0.4 * g, true); }
+      if (s === 8) { kick(t, 0.25 * g, true); }
+      if (s === 4 || s === 12) { clap(t, 0.1 * g); }
+      if (s % 4 === 0) { let n = null, k = 0; while (n === null && k++ < 16) { n = riffAt(M.riffPos++, key); } sub(t, R + n, beat * 0.95, 0.32 * g); }
+    } else if (sec === 'explore') {
+      if (s % 4 === 0) { kick(t, 0.55 * g); }
+      if (s === 4 || s === 12) { clap(t, 0.24 * g); }
+      if (s % 4 === 2) { hat(t, 0.08 * g * (0.5 + 0.5 * build)); } else if (s % 2 === 1 && build > 0.6) { hat(t, 0.035 * g); }
+      if (on8 && rn !== null) { bass(t, R + rn, six * 1.6, 0.22 * g, 650 + 650 * build); }
+      if (s === 0) { pad(t, barLen * 1.1, ch.map((n) => R + 24 + n), 0.07 * g, 1300, barLen * 0.3); }
+      pluck(t, R + 36 + ch[s % 3] + (s % 8 >= 4 ? 12 : 0), 0.05 * g * (0.3 + 0.7 * build));
+    } else if (sec === 'stealth') {
+      if (s === 0) { drone(t, barLen * 1.3, R, 0.09 * g, 280 + 500 * build); heart(t, 0.45 * g, beat); }
+      if (on8 && rn !== null) { sub(t, R + rn, six * 1.2, 0.06 * g); }
+      if (s === 14 && bar % 4 === 3) { bell(t, R + 49, 0.025 * g * (0.5 + build)); }   // a far-off, wrong-sounding ping: held breath
+    } else if (sec === 'enemy') {
+      if (s % 4 === 0) { kick(t, 0.6 * g); }
+      if (s === 4 || s === 12) { snare(t, 0.24 * g); } else if (s % 2 === 1 && Math.random() < 0.3) { snare(t, 0.05 * g); }
+      if (s >= 12 && bar % 2 === 1) { snare(t, (0.12 + 0.05 * (s - 12)) * g); }
+      bass(t, R + M.last, six * 0.9, (s % 4 === 0 ? 0.12 : 0.22) * g, 900);
+      pluck(t, R + 36 + [ch[0], ch[1], ch[2], ch[0] + 12][s % 4], 0.05 * g);
+      if (s === 0) { pad(t, barLen * 1.05, [R + 24 + ch[0], R + 25 + ch[0], R + 24 + ch[2]], 0.06 * g, 900, 0.3); }
+    } else if (sec === 'repair') {
+      if (s === 0) { kick(t, 0.45 * g); pad(t, barLen * 1.1, ch.map((n) => R + 24 + n), 0.08 * g, 1700, barLen * 0.3); }
+      if (s === 8) { clap(t, 0.18 * g); }
+      if (s % 4 === 2) { hat(t, 0.05 * g); }
+      if (on8 && rn !== null) { pluck(t, R + 24 + rn, 0.12 * g); }
+      if (s % 2 === 1) { bell(t, R + 48 + ch[(s >> 1) % 3], 0.025 * g); }
+    } else if (sec === 'dock') {
+      if (s % 4 === 0) { kick(t, 0.6 * g); }
+      if (s === 4 || s === 12) { clap(t, 0.22 * g); }
+      hat(t, (s % 4 === 2 ? 0.09 : 0.04) * g);
+      if (on8 && rn !== null) { bass(t, R + rn, six * 1.1, 0.28 * g, 1400); }
+      pluck(t, R + 36 + ch[s % 3] + (s % 6 >= 3 ? 12 : 0), 0.05 * g);
+    } else if (sec === 'boss' || sec === 'drop') {
+      const big = sec === 'drop';
+      if (s % 2 === 0) { kick(t, (s % 4 === 0 ? 0.65 : 0.5) * g); }
+      if (s === 4 || s === 12) { snare(t, 0.3 * g); if (big) { clap(t, 0.25 * g); } }
+      if (on8 && rn !== null) { bass(t, R + rn + ((s >> 1) % 2 ? 12 : 0), six * 1.3, 0.26 * g, 1600); }
+      if (s === 0 || s === 3 || s === 6 || s === 10) { stab(t, R + 24 + ch[0], 0.16 * g); }
+      if (bar % 4 === 3 && s === 0) { riser(t, barLen, 0.12 * g); }
+      if ((big ? bar % 2 === 0 : bar % 4 === 0) && s === 0 && bar > 0) { crash(t, 0.18 * g); }
+      pluck(t, R + 36 + [ch[0], ch[2], ch[1] + 12, ch[2] + 12][s % 4], 0.05 * g);
+      if (big) { hat(t, (s % 2 ? 0.04 : 0.08) * g); if (s === 0) { pad(t, barLen * 1.05, ch.map((n) => R + 24 + n), 0.1 * g, 2600, 0.2); } if (on8 && rn !== null) { bell(t, R + 48 + rn, 0.05 * g); } }
+    } else if (sec === 'ending') {
+      if (s === 0) { pad(t, barLen * 1.25, ch.map((n) => R + 24 + n).concat([R + 36 + ch[1]]), 0.15 * g, 1800, barLen * 0.5); kick(t, 0.3 * g, true); sub(t, R + 12 + ch[0], barLen, 0.14 * g); }
+      if (s === 8) { clap(t, 0.09 * g); }
+      if (on8 && rn !== null) { bell(t, R + 36 + rn, 0.08 * g); pluck(t, R + 36 + rn, 0.03 * g); }
+    } else if (sec === 'outro') {
+      if (bar === 0 && s === 0) { kick(t, 0.4 * g, true); pad(t, barLen * 3, [R + 24, R + 27, R + 31], 0.1 * g, 600, barLen); }
+      if (bar < 2 && on8 && rn !== null) { bell(t, R + 36 + rn, 0.07 * g * (1 - bar * 0.35)); }
+    }
+    // ---- mood layers: they play under every section; their layer volume decides if you hear them ----
+    const Mo = MUSIC.moods;
+    if (s === 0) { drone(t, barLen * 1.2, R + 48 + ch[0], 0.03 * Mo.tension.gain, 2200, 'tension'); drone(t, barLen * 1.2, R + 49 + ch[0], 0.02 * Mo.tension.gain, 2200, 'tension'); }   // a minor second: cold
+    if (s % 2 === 1) { hat(t, (s % 4 === 3 ? 0.05 : 0.025) * Mo.tension.gain, 'tension'); }
+    if (s === 0 || s === 8) { heart(t, 0.5 * Mo.heart.gain, beat, 'heart'); }
+    if (s === 8 || (s === 14 && bar % 2 === 1)) { bell(t, R + 48 + ch[(bar + (s >> 3)) % 3], 0.05 * Mo.hope.gain, 'hope'); }
+    if (s % 4 === 0) { tick(t, s % 8 === 0 ? 2400 : 1800, 0.05 * Mo.clock.gain); }
+  }
+  // schedule steps of 'sec' until time 'until'. A new section starts on the next beat and swells in.
+  M.run = (sec, until) => {
+    if (M.next < c.currentTime - 0.25) { M.next = c.currentTime + 0.05; }
+    while (M.next < until) {
+      if (sec !== M.sec && M.step % 4 === 0) {
+        M.sec = sec; M.step = 0; M.bar = 0; M.riffPos = 0; M.whispered = false; M.secStart = M.notes;
+        M.secG.gain.cancelScheduledValues(M.next); M.secG.gain.setValueAtTime(0.25, M.next); M.secG.gain.linearRampToValueAtTime(1, M.next + 1.2);
+      }
+      step(M.sec, M.step, M.bar, M.next);
+      M.next += 60 / M.bpm(M.sec) / 4; M.step++; if (M.step >= 16) { M.step = 0; M.bar++; }
+    }
+  };
+  return M;
+}
+// which SECTION the game is in right now
+function musicSection() {
+  const o = G.overlay;
+  if (G.scene === 'title') { return o === 'help' || o === 'debug' ? 'comic' : 'intro'; }
+  if (o === 'win') { return 'ending'; } if (o === 'lose') { return 'outro'; }
+  if (o === 'quiz' || o === 'site') { return 'repair'; }
+  if (o === 'pause' || o === 'help') { return 'comic'; }
+  if (!G.room) { return 'intro'; }
+  const R = G.room;
+  if (R.def.boss && R.enemies.length) { if (bossAsleep()) { return 'stealth'; } return R.enemies.some((e) => FOES[e.ch].kind === 'claw') ? 'boss' : 'drop'; }
+  const near = R.enemies.some((e) => hexDist(e.i, P.i) <= 2) || (R.enemies.length && threatMap()[P.i]);
+  if (near) { G.musicDanger = G.t + MUSIC.dangerHold; }
+  if (R.enemies.length && G.t < (G.musicDanger || 0)) { return 'enemy'; }
+  if (timerOn() && turnsLeft() <= SETTINGS.timer.turns * SETTINGS.timer.alarmAllAt) { return 'dock'; }
+  if (G.roomId === WORLD.start) { return 'chapter'; }
+  if (R.def.parent) { return 'stealth'; }
+  return 'explore';
+}
+// how much of each MOOD LAYER to hear right now (0..1), and how far the drums drop back
+function moodsNow(sec) {
+  const m = { tension: 0, heart: 0, hope: 0, clock: 0, calm: 0 }, Mo = MUSIC.moods;
+  if (G.scene !== 'play' || !G.room || /^(ending|outro|comic|intro)$/.test(sec)) { return m; }
+  const R = G.room;
+  if (R.enemies.length && !/^(enemy|boss|drop)$/.test(sec)) {   // the fight sections have their own tension
+    let d = 99; for (const e of R.enemies) { d = Math.min(d, hexDist(e.i, P.i)); }
+    m.tension = Math.max(0, Math.min(1, (Mo.tension.range + 1 - d) / (Mo.tension.range - 1)));
+  }
+  m.heart = P.hp <= 1 && P.hp > 0 ? 1 : 0;
+  m.hope = P.carry / Math.max(1, carryCap());
+  if (timerOn()) { const k = 1 - turnsLeft() / (SETTINGS.timer.turns * Mo.clock.from); m.clock = Math.max(0, Math.min(1, k)); }
+  m.calm = !R.enemies.length && sec !== 'repair' ? 1 : 0;
+  return m;
+}
+function musicMix(m) {   // moods -> target volume of every layer
+  const calmDrums = 1 - m.calm * (1 - MUSIC.moods.calm.drums);
+  return { drums: calmDrums, bass: 1 - m.calm * 0.3, pad: 1 + m.calm * 0.4, tension: m.tension, heart: m.heart, hope: m.hope, clock: m.clock };
 }
 function musicTick() {
-  if (!SND.ctx) { return; }   // browsers allow sound only after the first tap
-  if (!SND.player) { SND.player = new Audio(); SND.player.loop = true; SND.player.addEventListener('error', () => { const c = SND.tries && SND.tries.shift(); if (c) { SND.player.src = c; const pr = SND.player.play(); if (pr) { pr.catch(() => {}); } } else { SND.track = 'missing:' + SND.track; } }); }
-  const want = SND.on && SND.music ? musicWanted() : null;
-  if (!want) { if (!SND.player.paused) { SND.player.pause(); } SND.track = null; return; }
-  if (SND.track === want || SND.track === 'missing:' + want) { return; }
-  SND.track = want; SND.tries = [want]; SND.player.src = 'assets/music/' + want;   // beside the page, else uploaded to the p5 editor by bare name
-  SND.player.volume = SETTINGS.audio.musicVolume; const pr = SND.player.play(); if (pr) { pr.catch(() => { /* no file or not allowed yet: stay quiet */ }); }
+  if (!SND.ctx || SND.ctx.state !== 'running') { return; }   // browsers allow sound only after the first tap
+  if (!SND.band) { SND.bandOut = SND.ctx.createGain(); SND.bandOut.connect(SND.ctx.destination); SND.band = makeMusic(SND.ctx, SND.bandOut); }
+  const on = SND.music ? 1 : 0.0001; if (SND.bandLevel !== on) { SND.bandLevel = on; SND.bandOut.gain.setTargetAtTime(on, SND.ctx.currentTime, 0.15); }
+  if (!SND.music) { return; }
+  const B = SND.band, sec = musicSection(), m = moodsNow(sec);
+  B.mood = m; B.mix(musicMix(m), SND.ctx.currentTime); B.open = 1 + m.calm * 0.8;
+  B.speed = timerOn() && G.room ? Math.max(0, Math.min(1, 1 - turnsLeft() / (SETTINGS.timer.turns * SETTINGS.timer.alarmAllAt))) : 0;
+  B.run(sec, SND.ctx.currentTime + 0.15);
+}
+// PREVIEW: render a section offline, optionally with mood layers, e.g. renderMusic('explore', 30, { tension: 1 }).
+// Used by tools/playtest.js --music to write listenable files to music-preview/. Returns 16-bit stereo samples, base64.
+async function renderMusic(sec, seconds, moods, speed) {
+  const sr = 44100, c = new OfflineAudioContext(2, Math.ceil(sr * seconds), sr), band = makeMusic(c, c.destination);
+  const m = Object.assign({ tension: 0, heart: 0, hope: 0, clock: 0, calm: 0 }, moods || {});
+  band.mix(musicMix(m), 0); band.open = 1 + m.calm * 0.8; band.speed = speed || 0; band.next = 0.05; band.run(sec, seconds - MUSIC.reverb.seconds * 0.6);
+  const buf = await c.startRendering(), L = buf.getChannelData(0), Rr = buf.getChannelData(1), out = new Int16Array(L.length * 2);
+  let peak = 0; for (let i = 0; i < L.length; i++) { peak = Math.max(peak, Math.abs(L[i]), Math.abs(Rr[i])); }
+  const k = peak > 0.98 ? 0.98 / peak : 1;
+  for (let i = 0; i < L.length; i++) { out[i * 2] = Math.round(L[i] * k * 32767); out[i * 2 + 1] = Math.round(Rr[i] * k * 32767); }
+  let bin = ''; const u8 = new Uint8Array(out.buffer); for (let i = 0; i < u8.length; i += 32768) { bin += String.fromCharCode.apply(null, u8.subarray(i, i + 32768)); }
+  return { sr, peak, notes: band.notes, b64: btoa(bin) };
 }
 function saveSound() { try { localStorage.setItem(SETTINGS.savePrefix + '_sound', JSON.stringify({ sfx: SND.on, music: SND.music })); } catch (_) { /* ignore */ } }
 function loadSound() { try { const o = JSON.parse(localStorage.getItem(SETTINGS.savePrefix + '_sound') || 'null'); if (o) { SND.on = o.sfx !== false; SND.music = o.music !== false; } } catch (_) { /* ignore */ } }

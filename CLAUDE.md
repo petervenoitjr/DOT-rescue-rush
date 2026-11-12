@@ -1,6 +1,6 @@
 # DO-T: Lost and Found
 
-A hex tactics game (Hoplite rules) aboard the space station from **All Humans Are Dead (AHAD)**. DO-T the robot rescues 8 babies before the station self-destructs. One file of plain **p5.js 2.3.4** (global mode) that pastes straight into the p5.js web editor. Owner: **Peter Venoit, Jr.** Version **4.4** (2026-11-12).
+A hex tactics game (Hoplite rules) aboard the space station from **All Humans Are Dead (AHAD)**. DO-T the robot rescues 8 babies before the station self-destructs. One file of plain **p5.js 2.3.4** (global mode) that pastes straight into the p5.js web editor. Owner: **Peter Venoit, Jr.** Version **4.5** (2026-11-12).
 
 Live page (private, Peter's account): https://claude.ai/artifact/Si1ZmXPJCgSx5KqHKbUVPR
 
@@ -20,8 +20,9 @@ Live page (private, Peter's account): https://claude.ai/artifact/Si1ZmXPJCgSx5Kq
 ```bash
 npm install                      # once: p5 2.3.4 + playwright 1.63.0 (dev only)
 npx playwright install chromium  # once, if this machine has no Playwright Chromium
-npm test                         # headless smoke test, 9 checks, exit 0 = pass
+npm test                         # headless smoke test, 13 checks, exit 0 = pass
 npm run shots                    # same, plus screenshots in playtest-shots/
+npm run music                    # same, plus a WAV of every music section in music-preview/
 ```
 Play: open `dot_hex_page.html` in a browser (needs internet for p5 + the font), or paste `sketch_dot_hex.js` into editor.p5js.org (p5 2.3.4).
 
@@ -29,17 +30,17 @@ After editing the sketch or adding sounds, rebuild (packs `assets/sfx/` into the
 ```bash
 python3 tools/build.py
 ```
-Publishing to the artifact: send `dot_hex_publish.html` plus the 4 MP3s in `assets/music/` as supporting files at the same paths (the artifact host serves .mp3 but not .m4a).
+Publishing to the artifact: send `dot_hex_publish.html` alone (music is code, sound effects are packed in; no supporting files).
 `dot_hex_publish.html` is what gets published to the claude.ai artifact (the artifact service adds its own wrapper).
 
 ## File map
 | File | What it is |
 |---|---|
-| `sketch_dot_hex.js` | The whole game (v4.2). Sections in order: SETTINGS (+ DEBUG_SCENARIOS, FOES, BLESSINGS, BIOMES, WORLD) → DotRig (AHAD rig, unchanged) → THEME (DO-T look, text, sounds) → DOT-UI kit → AHAD art (Biter, Beamer, Rocket Fist, Crab) → hex engine (maths, world gen, player turn, zap preview, enemy turn, alarms, puzzles, save/log, input, drawing, screens). |
+| `sketch_dot_hex.js` | The whole game (v4.5). Sections in order: SETTINGS (+ DEBUG_SCENARIOS, FOES, BLESSINGS, BIOMES, WORLD) → DotRig (AHAD rig, unchanged) → THEME (DO-T look, text, sounds) → DOT-UI kit → AHAD art (Biter, Beamer, Rocket Fist, Crab) → hex engine (maths, world gen, player turn, zap preview, enemy turn, alarms, puzzles, save/log, input, drawing, screens). |
 | `dot_hex_page.html` | Standalone page: open it to play. Generated. |
 | `dot_hex_publish.html` | Page body for the claude.ai artifact. Generated. |
 | `assets/sfx/` | Sound effects (DO-T RUSH names), packed into the sketch by the build. Has `victory.m4a`; README lists the other names. |
-| `assets/music/` | AHAD music (from Peter's Drive): 4 MP3s used by the game, `source/AHAD.m4a` original; not packed into the sketch; README says which plays where. |
+| `assets/music/` | README only (music is composed live in the sketch) + `source/AHAD.m4a`, kept for reference, unused. |
 | `tools/build.py` | Build: packs sounds, regenerates both HTML files. |
 | `sketch_dot_hex.v3.js` | v3 as it was before this round of work, kept for reference/diffs. Not used. |
 | `tools/playtest.js` | Headless smoke test (Playwright). |
@@ -50,5 +51,6 @@ Publishing to the artifact: send `dot_hex_publish.html` plus the 4 MP3s in `asse
 - **DEBUG button** (title screen, bottom right) → 18 scenarios (`DEBUG_SCENARIOS` / `startDebug()`): Crab asleep / exposed / lined up, enemy zoo, Beamers only, alarm sector, the 3 puzzles, all sectors clear (warp test), escape pod, carrying 2, late all-alarms, low time, all upgrades, empty sector, win / lose screens. Plus **GOD MODE** and **REVEAL MAP** toggles.
 - `SETTINGS.debug`: `showButton`, `skipTitle`, `invincible`, `revealMap`, `fixedSeed` (0 = random station).
 - **Playtest log**: every real finished run is stored in localStorage `dot_hex_log` (last 50); the title shows a summary line. Use it to tune `SETTINGS.timer.turns`.
-- **Sound:** `SETTINGS.audio` (volumes, `files` = which DO-T RUSH sound plays for each event, `music` = track names). File first, synthesized `THEME.sfx` beep as fallback. Pause menu has SOUND and MUSIC toggles (saved).
+- **Sound:** `SETTINGS.audio` (volumes, `files` = which DO-T RUSH sound plays for each event). File first, synthesized `THEME.sfx` beep as fallback. Pause menu has SOUND and MUSIC toggles (saved).
+- **Music (live, no files):** `MUSIC` settings block (riff, key, bpm and level per section, mood layers, reverb). Engine `makeMusic()`; `musicSection()` picks the section, `moodsNow()` + `musicMix()` set the layer volumes, which ease over `MUSIC.ease` seconds. Every instrument plays into a named layer (`MUSIC_LAYERS`); add an instrument by giving it a layer. Keep all loops braced (p5 editor).
 - Keyboard: W E D X Z A move, 1 thrust, 2 fist, M map, Esc pause.
