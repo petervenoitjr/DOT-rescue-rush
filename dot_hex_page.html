@@ -16,6 +16,7 @@
 //  v4.7 (2026-11-12): music cool-down (hold / settle / urgent), sections resume where they left off, alt song B for variety (loops alternate A/B).
 //  v4.7.1 (2026-11-12): phone sound fix: unlock on the END of a tap (touchend/pointerup/click), silent <audio> keeps iPhone Web Audio on with the silent switch, resume after interruptions; AUDIO status line in the pause menu.
 //  v4.7.2 (2026-11-12): title screen plays the composed Exploring music with the enemy-creeping-close tension layer (SONG.composed), Peter's pick.
+//  v4.8 (2026-11-12): ROCKET FIST = the DOT Blaster Drag'n'Boom slingshot: pull back from DO-T, let go; the big fist flies free and EXPLODES on the first enemy or wall (blast radius 1); it can miss. SETTINGS.fist.
 //  Paste this whole file into the p5.js web editor (p5 2.x) as sketch.js.
 // =====================================================================
 
@@ -33,9 +34,24 @@ const SETTINGS = {
     regen: 10,            // energy back every turn
     ammoStart: 1,         // DO-T has ONE rocket fist: throw it, then go and pick it up (like Hoplite's spear)
     ammoMax: 1,
-    throwRange: 3,        // how far the rocket fist flies, in a straight hex line
+    throwRange: 3,        // the rocket fist's longest throw, in hexes (a full pull). How it's aimed: SETTINGS.fist
     bashCooldown: 3,      // turns between shield bumps
     carry: 2              // babies DO-T can carry at once
+  },
+  // ROCKET FIST: the Drag'n'Boom slingshot (from DOT Blaster / DO-T: Spire Boost). Put a finger on DO-T, pull back, let go:
+  //   the big fist flies the other way and EXPLODES on the first enemy or wall it touches (like DO-T RUSH). Aim badly and it misses.
+  fist: {
+    dragMax: 110,         // finger pull (px) for full power = the longest throw (SETTINGS.hero.throwRange hexes)
+    deadzone: 18,         // shorter pulls count as a plain tap, so a tap never throws
+    grab: 48,             // a pull that starts this close to DO-T aims the fist (after tapping FIST, a pull can start anywhere)
+    minReach: 1.2,        // the shortest throw (a light pull), in hexes
+    speed: 600,           // flight speed, px per second
+    hitSize: 0.42,        // how big an enemy is to the fist, in hexes: smaller = easier to miss
+    blast: 1,             // explosion radius in hexes: 0 = only what it hit, 1 = that hex and the 6 around it
+    blastDamage: 1,       // damage to every enemy in the blast (armored ones just CLANK)
+    aimPreview: 0.5,      // how much of the flight the dotted aim line shows: 1 = all of it (no surprises), 0.3 = you judge the rest
+    size: 1.25,           // how big the fist is in flight
+    explodeOnMiss: false  // true = it also blows up where it lands after a miss
   },
   feel: { turnLock: 0.16, travelStep: 0.1 },   // travelStep = seconds per hex when walking on its own in a cleared place   // turnLock = seconds after each turn before the next tap counts
   // SOUND: the DO-T RUSH setup. Sound files in assets/sfx/ are built INTO this sketch by tools/build.py (EMBED_ASSETS at the bottom).
@@ -803,7 +819,7 @@ const THEME = {
     'GREEN hexes zap: move there and DO-T flashes his light at the enemy and it pops. A green hex with a red X still gets you hit afterwards.',
     'ZAP: move PAST an enemy (start and end your move next to it) to flash it. Move straight TOWARD an enemy 2 hexes away to boost-ram it.',
     'SHIELD BUMP: tap an enemy right next to DO-T. It is knocked back and stunned. Knock it into an open vent or the coolant and it is gone.',
-    'ROCKET FIST: tap FIST, then an enemy in a straight line. The fist lands there, and DO-T must go and pick it up before he can throw again.',
+    'ROCKET FIST: put your finger on DO-T, pull back like a slingshot and let go. The fist flies the other way and EXPLODES on the first enemy or wall it hits. A longer pull throws it further. Miss, and it lands on the floor: go and pick it up before you can throw again.',
     'THRUST: tap THRUST, then a hex up to 2 away. It uses energy, which comes back a little every turn and fully in each new sector.',
     'REPAIR CIRCUITS: solve the math to restore power, then choose an upgrade (some cost a hull plate) or repair your hull.',
     'Biters bite. Pouncers move 2 hexes a turn. Brutes are tough. Beamers shoot along straight lines, but never at someone right next to them.',
@@ -814,11 +830,11 @@ const THEME = {
     intro: 'SELF-DESTRUCT ARMED. Find all 8 babies and get them to the escape pods!',
     homeWord: 'safe', banked: (n, b, t) => n + (n === 1 ? ' baby is' : ' babies are') + ' safe at the Dock!  ' + b + ' of ' + t,
     lunge: 'RAM!', stab: 'ZAP!', multi: 'OVERLOAD!', gotSheep: 'Found one!', carryHint: 'Carry the pod home to The Dock.', ammoOne: 'fist',
-    cantLeap: 'Can’t thrust there.', cantThrow: 'Aim at an enemy in a straight, clear line.', throwHit: 'POW!',
+    cantLeap: 'Can’t thrust there.', throwMiss: 'Missed! Go and get the fist.', noRoom: 'No room to throw that way.', throwHit: 'BOOM!',
     bashWait: (n) => 'Shield recharges in ' + n + (n === 1 ? ' turn.' : ' turns.'), armsFull: 'Hands full. Take these to the Dock first.',
     fell: 'Vented!', slam: 'SLAM!', stunned: 'Stunned', dropped: 'The pod popped loose! Pick it up again.', rested: 'Hull repaired.',
     noEnergy: 'Not enough energy to thrust yet.', noAmmo: 'The rocket fist is out. Go and pick it up!',
-    leapHint: 'Tap a hex to thrust to (tap THRUST again to cancel).', throwHint: 'Tap an enemy in a straight line to launch the fist.',
+    leapHint: 'Tap a hex to thrust to (tap THRUST again to cancel).', throwHint: 'Pull back from DO-T and let go: the fist flies the other way.',
     clearHint: 'Sector clear. Tap any hex and DO-T flies there.',
     idleHint: 'GREEN = zap with the light.  RED = you get hit there.', energyWord: 'PWR',
     flockLine: (b, t) => 'Safe ' + b + ' / ' + t, carryLine: (c, cap) => 'Carrying ' + c + ' / ' + cap,
@@ -1019,6 +1035,7 @@ const THEME = {
     leap: (t) => { sndNoise(t, 0.3, 0.3, 500, 3600, 2); tone('sine', 180, 620, t, 0.25, 0.18); },
     throw: (t) => { sndNoise(t, 0.4, 0.25, 300, 2600, 1.4); tone('sawtooth', 90, 340, t, 0.35, 0.08, { lp: 1200 }); },
     shoot: (t) => { sndNoise(t, 0.25, 0.25, 2000, 400, 1); tone('sine', 400, 120, t, 0.2, 0.15); },
+    boom: (t) => { sndNoise(t, 0.7, 0.55, 1400, 60, 0.8); tone('sine', 140, 32, t, 0.55, 0.4); tone('square', 70, 30, t, 0.25, 0.08, { lp: 600 }); },
     hit: (t) => { sndNoise(t, 0.05, 0.25, 1800, 0, 1.5); tone('sine', 320, 120, t, 0.09, 0.25); },
     kill: (t) => { sndNoise(t, 0.35, 0.3, 1500, 200, 1.2); tone('square', 430, 60, t, 0.3, 0.12, { lp: 1500 }); tone('sine', 900, 2400, t, 0.1, 0.1); },
     hurt: (t) => { tone('sawtooth', 190, 70, t, 0.22, 0.24, { lp: 1300 }); sndNoise(t, 0.18, 0.25, 1000, 200, 1); },
@@ -1323,12 +1340,73 @@ function canLeapTo(i) {
   if (R.sheep.includes(i) && P.carry >= carryCap()) { return false; }
   return true;
 }
-function throwTarget(i) {          // the enemy a throw at tile i would hit, or null
-  if (P.ammo <= 0) { return null; }
-  const e = enemyAt(i); if (!e) { return null; }
-  const L = lineTo(P.i, i); if (!L || L.n > throwRange()) { return null; }
-  let j = P.i; for (let k = 1; k < L.n; k++) { j = stepHex(j, L.d); if (G.room.tiles[j] === '#' || enemyAt(j) || G.room.sheep.includes(j)) { return null; } }
-  return e;
+// ---------- ROCKET FIST: the slingshot ----------
+function fistReach(power) { const F = SETTINGS.fist; return (F.minReach + (throwRange() - F.minReach) * Math.max(0, Math.min(1, power))) * HS * SQ3; }
+function fistFlight(dx, dy, power) {   // where a throw goes: { x0, y0, x1, y1, hit: 'enemy' | 'wall' | 'miss', at: hex it explodes / lands, before: last free hex, enemy }
+  const R = G.room, a = tilePos(P.i), D = fistReach(power), hitR = SETTINGS.fist.hitSize * HS * SQ3;
+  const free = (j) => j >= 0 && isWalk(R.tiles[j]) && !enemyAt(j) && !R.sheep.includes(j) && j !== P.i;
+  let before = P.i, x = a.x, y = a.y;
+  for (let d = 4; d <= D; d += 4) {
+    x = a.x + dx * d; y = a.y + dy * d;
+    const j = hexAt(x, y), c = tilePos(j);
+    if (Math.hypot(c.x - x, c.y - y) > HS * 1.05) { return { x0: a.x, y0: a.y, x1: x, y1: y, hit: 'wall', at: before, before }; }   // off the board: the hull
+    if (R.tiles[j] === '#') { return { x0: a.x, y0: a.y, x1: x, y1: y, hit: 'wall', at: before, before }; }
+    for (const e of R.enemies) { const q = tilePos(e.i); if (Math.hypot(q.x - x, q.y - y) < hitR) { return { x0: a.x, y0: a.y, x1: x, y1: y, hit: 'enemy', at: e.i, before, enemy: e }; } }
+    if (j !== P.i && free(j)) { before = j; }
+  }
+  return { x0: a.x, y0: a.y, x1: x, y1: y, hit: 'miss', at: before, before };
+}
+function launchFist(dx, dy, power) {   // the release: fly, then explode (or land), then the enemies take their turn
+  const R = G.room; if (P.ammo <= 0) { say(THEME.text.noAmmo, 2.2); sfx('no'); return false; }
+  const fl = fistFlight(dx, dy, power);
+  if (fl.hit === 'wall' && fl.before === P.i) { say(THEME.text.noRoom, 1.8); sfx('no'); return false; }   // straight into the wall beside DO-T: no throw, no turn
+  const dur = Math.max(0.12, Math.hypot(fl.x1 - fl.x0, fl.y1 - fl.y0) / SETTINGS.fist.speed);
+  P.ammo--; P.throwT = 0.3; P.mode = null; P.face = dx >= 0 ? 1 : -1; sfx('throw'); R.noise = true;
+  G.fx.push({ kind: 'fist', x0: fl.x0, y0: fl.y0 - 24, x1: fl.x1, y1: fl.y1 - 18, t: 0, dur, life: 1 });
+  G.busy = dur + 0.4; G.lastFist = fl;
+  later(() => { fistLands(fl); }, dur * 1000);
+  return fl;
+}
+function fistLands(fl) {
+  const R = G.room, F = SETTINGS.fist;
+  if (fl.hit === 'miss' && !F.explodeOnMiss) {
+    if (fl.at === P.i) { P.ammo++; } else { R.stones.push(fl.at); }
+    floatText(fl.at, THEME.text.throwMiss, THEME.ui.text); sfx('no'); return endPlayerTurn();
+  }
+  // BOOM: everything in the blast takes damage (armor CLANKs); the boss wakes
+  const c = fl.at, p = tilePos(c), ex = fl.hit === 'enemy' ? tilePos(fl.enemy.i) : { x: fl.x1, y: fl.y1 };
+  G.fx.push({ kind: 'boom', x: ex.x, y: ex.y - 14, life: 0.55, r: (F.blast + 0.6) * HS * SQ3 });
+  burst(ex.x, ex.y - 14, THEME.ui.flash, 26); burst(ex.x, ex.y - 14, TR.am, 14); G.shake = 0.45; sfx('boom');
+  const hitList = R.enemies.filter((e) => hexDist(e.i, c) <= F.blast || e === fl.enemy);
+  for (const e of hitList) { if (R.enemies.includes(e)) { damageEnemy(e, F.blastDamage, THEME.text.throwHit); } }
+  if (fl.enemy && FOES[fl.enemy.ch] && (FOES[fl.enemy.ch].kind === 'boss' || FOES[fl.enemy.ch].kind === 'claw')) { wakeBoss(); }
+  // the fist drops where it blew up, or (if something still stands there) on the last free hex before it
+  const spot = fl.hit === 'enemy' && !enemyAt(c) && isWalk(R.tiles[c]) && !R.sheep.includes(c) ? c : fl.before;
+  if (spot === P.i) { P.ammo++; } else { R.stones.push(spot); }
+  return endPlayerTurn();
+}
+function fistDragStart(x, y) {   // true if this touch starts aiming the fist
+  if (G.scene !== 'play' || G.overlay || G.busy > 0 || G.path || P.ammo <= 0) { return false; }
+  const near = Math.hypot(x - P.dx, y - (P.dy - 18)) <= SETTINGS.fist.grab;
+  return near || P.mode === 'throw';
+}
+function fistPull() {   // pull back = throw forward
+  const d = G.drag; if (!d) { return { dx: 0, dy: 0, power: 0, len: 0 }; }
+  const px = d.sx - d.x, py = d.sy - d.y, len = Math.hypot(px, py);
+  return { dx: len ? px / len : 0, dy: len ? py / len : 0, power: Math.min(len, SETTINGS.fist.dragMax) / SETTINGS.fist.dragMax, len };
+}
+function drawFistAim() {   // the dotted aim line from DO-T (only part of the flight) and the DOT Blaster pull ring at the finger
+  const d = G.drag; if (!d) { return; }
+  const p = fistPull(), F = SETTINGS.fist; if (p.len < F.deadzone) { return; }
+  const a = tilePos(P.i), D = fistReach(p.power), show = D * F.aimPreview;
+  P.face = p.dx >= 0 ? 1 : -1;
+  push(); noStroke();
+  glowOn(TR.am, 10); for (let k = 26; k < show; k += 15) { const x = a.x + p.dx * k, y = a.y - 24 + p.dy * k, f = 1 - 0.6 * k / show; fill(255, 200, 80, 255 * f); circle(x, y, 9 * f + 3); } glowOff();
+  const R2 = F.dragMax * 0.6; let kx = d.x - d.sx, ky = d.y - d.sy; const m = Math.hypot(kx, ky); if (m > R2) { kx = kx / m * R2; ky = ky / m * R2; }
+  translate(d.sx, d.sy); noFill(); stroke(TR.am); strokeWeight(1.2); drawingContext.globalAlpha = 0.5; circle(0, 0, R2 * 2); drawingContext.globalAlpha = 1;
+  strokeWeight(2.5); arc(0, 0, R2 * 2 + 14, R2 * 2 + 14, -HALF_PI, -HALF_PI + TWO_PI * p.power);
+  strokeWeight(1.6); circle(kx, ky, 40); strokeWeight(1); line(kx - 7, ky, kx + 7, ky); line(kx, ky - 7, kx, ky + 7);
+  pop();
 }
 function canBash(i) { return P.bashCd <= 0 && hexDist(P.i, i) === 1 && !!enemyAt(i); }
 
@@ -1439,15 +1517,7 @@ function playerTap(i) {
     const side = exitSideAt(i); if (side) { P.turns++; return leaveVia(side); }
     return endPlayerTurn();
   }
-  if (P.mode === 'throw') {
-    if (i === P.i) { P.mode = null; return; }
-    const e = throwTarget(i); if (!e) { say(THEME.text.cantThrow, 1.6); sfx('no'); return; }
-    const a = tilePos(P.i), b = tilePos(e.i); G.fx.push({ kind: 'shot', x0: a.x, y0: a.y - 24, x1: b.x, y1: b.y - 14, t: 0, dur: 0.18, mine: true });
-    P.ammo--; P.throwT = 0.3; P.mode = null; P.face = b.x >= a.x ? 1 : -1; sfx('throw'); R.noise = true;
-    const L = lineTo(P.i, e.i), arm = isArmored(e);   // armor knocks the fist back one hex (adjacent: straight back into DO-T's hand)
-    if (arm && L.n === 1) { P.ammo++; } else { R.stones.push(arm ? stepHex(e.i, (L.d + 3) % 6) : e.i); }
-    damageEnemy(e, 1, THEME.text.throwHit); return endPlayerTurn();
-  }
+  if (P.mode === 'throw') { P.mode = null; if (i === P.i) { return; } }   // FIST mode: a plain tap cancels it and acts as a normal tap
   if (i === P.i) { return; }
   if (canBash(i)) { return doBash(enemyAt(i)); }
   if (enemyAt(i) && hexDist(P.i, i) === 1) { say(THEME.text.bashWait(P.bashCd), 1.8); sfx('no'); return; }
@@ -1635,6 +1705,8 @@ function updateFx(dt) {
     if (f.kind === 'spark') { f.x += f.vx * dt; f.y += f.vy * dt; f.vy += 220 * dt; f.life -= dt; }
     else if (f.kind === 'ring') { f.life -= dt; }
     else if (f.kind === 'shot') { f.t += dt; if (f.t >= f.dur) { f.life = -1; } else { f.life = 1; } }
+    else if (f.kind === 'fist') { f.t += dt; f.life = f.t >= f.dur ? -1 : 1; }
+    else if (f.kind === 'boom') { f.life -= dt; }
   }
   G.fx = G.fx.filter((f) => f.life > 0);
   for (const f of G.floats) { f.y -= 26 * dt; f.life -= dt; }
@@ -1644,6 +1716,8 @@ function drawFx() {
   for (const f of G.fx) {
     if (f.kind === 'spark') { noStroke(); fill(f.col); circle(f.x, f.y, f.r * 2 * Math.max(0.2, f.life * 1.6)); }
     else if (f.kind === 'ring') { noFill(); stroke(f.col); strokeWeight(3 * f.life / 0.4 + 0.5); circle(f.x, f.y, (1 - f.life / 0.4) * 90 + 10); }
+    else if (f.kind === 'fist') { const k = Math.min(1, f.t / f.dur), x = lerpN(f.x0, f.x1, k), y = lerpN(f.y0, f.y1, k) - Math.sin(k * Math.PI) * 10; push(); glowOn('#7fd8ff', 18); drawRocketFist(x, y, Math.atan2(f.y1 - f.y0, f.x1 - f.x0), SETTINGS.fist.size, 1); glowOff(); pop(); }
+    else if (f.kind === 'boom') { const k = 1 - f.life / 0.55; noStroke(); fill(255, 236, 170, 200 * (1 - k)); circle(f.x, f.y, f.r * (0.4 + 0.9 * k)); fill(255, 255, 255, 230 * Math.max(0, 1 - k * 2.5)); circle(f.x, f.y, f.r * 0.5 * (1 - k)); noFill(); stroke(TR.am); strokeWeight(4 * (1 - k) + 0.5); circle(f.x, f.y, f.r * (0.6 + 1.2 * k)); }
     else if (f.kind === 'shot') { const k = f.t / f.dur; THEME.projectile(lerpN(f.x0, f.x1, k), lerpN(f.y0, f.y1, k) - Math.sin(k * Math.PI) * (f.mine ? 24 : 6), f.mine, Math.atan2(f.y1 - f.y0, f.x1 - f.x0)); }
   }
   for (const f of G.floats) { noStroke(); fill(f.col); textAlign(CENTER, CENTER); textSize(15); textStyle(BOLD); push(); drawingContext.globalAlpha = Math.min(1, f.life * 2); outlinedText(f.s, f.x, f.y); pop(); textStyle(NORMAL); }
@@ -2158,7 +2232,20 @@ function setup() {
   CNV.elt.style.touchAction = 'none'; sndWatch();
   const fit = () => { const b = document.body.getBoundingClientRect(), bw = b.width || window.innerWidth, bh = (b.height > 50 ? b.height : window.innerHeight); const k = Math.min(bw / W, bh / H); CNV.elt.style.width = W * k + 'px'; CNV.elt.style.height = H * k + 'px'; };
   fit(); window.addEventListener('resize', fit);
-  CNV.elt.addEventListener('pointerdown', (e) => { e.preventDefault(); const p = logicalPoint(e); onTap(p.x, p.y); }, { passive: false });
+  // a pull that starts on DO-T (or anywhere in FIST mode) aims the rocket fist; anything else is a normal tap
+  CNV.elt.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); const p = logicalPoint(e);
+    const onButton = G.ui.some((b) => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h);
+    if (!onButton && !G.drag && fistDragStart(p.x, p.y)) { G.drag = { id: e.pointerId, sx: p.x, sy: p.y, x: p.x, y: p.y }; try { CNV.elt.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ } return; }
+    onTap(p.x, p.y);
+  }, { passive: false });
+  CNV.elt.addEventListener('pointermove', (e) => { if (G.drag && G.drag.id === e.pointerId) { const p = logicalPoint(e); G.drag.x = p.x; G.drag.y = p.y; } });
+  CNV.elt.addEventListener('pointerup', (e) => {
+    if (!G.drag || G.drag.id !== e.pointerId) { return; }
+    const d = G.drag, pl = fistPull(); G.drag = null;
+    if (pl.len >= SETTINGS.fist.deadzone) { launchFist(pl.dx, pl.dy, pl.power); } else { onTap(d.sx, d.sy); }   // too short to be a pull: it was a tap
+  });
+  CNV.elt.addEventListener('pointercancel', () => { G.drag = null; });
   CNV.elt.addEventListener('contextmenu', (e) => e.preventDefault());
   window.addEventListener('keydown', onKey);
   textFont(HUDFONT);
@@ -2209,7 +2296,6 @@ function drawBoard(dt) {
     if (threat[i] && isWalk(R.tiles[i]) && !(pv && pv.zaps && !pv.danger)) { THEME.threat(p.x, p.y, threat[i]); }
     if (!showMoves) { continue; }
     if (P.mode === 'leap' && canLeapTo(i)) { THEME.choice(p.x, p.y, 'leap', pv ? pv.danger : !!threat[i], pv ? pv.zaps : 0); }
-    else if (P.mode === 'throw' && throwTarget(i)) { THEME.choice(p.x, p.y, 'throw', false); }
     else if (!P.mode && canStepTo(i)) { THEME.choice(p.x, p.y, 'step', pv ? pv.danger : !!threat[i], pv ? pv.zaps : 0); }
     else if (!P.mode && canBash(i)) { THEME.choice(p.x, p.y, 'bash', false); }
   }
@@ -2220,6 +2306,7 @@ function drawBoard(dt) {
   for (const e of R.enemies) { const p = tilePos(e.i); e.dx += (p.x - e.dx) * k; e.dy += (p.y - e.dy) * k; e.bump = Math.max(0, e.bump - dt); e.hurtT = Math.max(0, e.hurtT - dt); list.push({ y: e.dy, fn: () => { const lean = e.bump > 0 ? Math.sin(e.bump / 0.22 * Math.PI) * 10 : 0, ang = Math.atan2(P.dy - e.dy, P.dx - e.dx); THEME.enemy(e, e.dx + Math.cos(ang) * lean, e.dy + 10 + Math.sin(ang) * lean, P.dx < e.dx ? -1 : 1); } }); }
   { const p = tilePos(P.i); P.dx += (p.x - P.dx) * k; P.dy += (p.y - P.dy) * k; list.push({ y: P.dy, fn: () => THEME.hero(P.dx, P.dy + 10 - Math.sin(P.hop * Math.PI) * 34, threat[P.i]) }); }
   list.sort((a, b) => a.y - b.y); for (const u of list) { u.fn(); }
+  drawFistAim();
   drawZapLight();
   for (const a of (R.acid || [])) { const p = tilePos(a); THEME.acidMark(p.x, p.y); }
   if (R.spawnWarn >= 0) { const p = tilePos(R.spawnWarn); THEME.spawnMark(p.x, p.y); }

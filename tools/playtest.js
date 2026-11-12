@@ -82,6 +82,49 @@ const server = http.createServer((q, r) => {
   });
   check('Crab Worker: crack both claws, kill, reward', boss.left && boss.right && boss.exposed && boss.killed && boss.reward, boss);
 
+  // ROCKET FIST slingshot: aim + explosion + miss + blast + armor, then a real mouse pull on DO-T
+  const fistSetup = () => page.evaluate(() => {
+    startDebug('practice'); G.room.enemies = []; G.room.stones = []; G.room.sheep = []; P.ammo = 1; G.busy = 0;
+    const R = G.room; let d = -1, t1 = -1, t2 = -1;
+    for (let k = 0; k < 6 && d < 0; k++) { const a = stepHex(P.i, k), b = a >= 0 ? stepHex(a, k) : -1, c = b >= 0 ? stepHex(b, k) : -1; if (a >= 0 && b >= 0 && c >= 0 && [a, b, c].every((j) => isWalk(R.tiles[j]))) { d = k; t1 = b; t2 = c; } }
+    return { d, t1, t2 };
+  });
+  const aimAt = (j, power) => page.evaluate(([j, power]) => { const a = tilePos(P.i), b = tilePos(j), L = Math.hypot(b.x - a.x, b.y - a.y); return launchFist((b.x - a.x) / L, (b.y - a.y) / L, power); }, [j, power]);
+  const fist = {};
+  let F0 = await fistSetup();
+  await page.evaluate((t) => { placeFoes('W', 1); G.room.enemies[0].i = t; }, F0.t1);
+  const h1 = await aimAt(F0.t1, 1); await page.waitForTimeout(1500);
+  fist.direct = await page.evaluate((t) => ({ enemies: G.room.enemies.length, fistOnFloor: G.room.stones.includes(t), ammo: P.ammo }), F0.t1); fist.direct.hit = h1 && h1.hit;
+  F0 = await fistSetup();
+  const h2 = await aimAt(F0.t2, 0); await page.waitForTimeout(1500);   // nothing there, short pull: a miss
+  fist.miss = await page.evaluate(() => ({ stones: G.room.stones.length, ammo: P.ammo })); fist.miss.hit = h2 && h2.hit;
+  F0 = await fistSetup();
+  await page.evaluate(([a, b]) => { placeFoes('WW', 2); G.room.enemies[0].i = a; G.room.enemies[1].i = b; }, [F0.t1, F0.t2]);
+  await aimAt(F0.t1, 1); await page.waitForTimeout(1500);
+  fist.blastLeft = await page.evaluate(() => G.room.enemies.length);
+  await page.evaluate(() => { startDebug('crack'); P.ammo = 1; G.busy = 0; bossBody().sleep = true; });
+  const claw = await page.evaluate(() => { const c = G.room.enemies.find((e) => FOES[e.ch].kind === 'claw'); return c.i; });
+  const h4 = await aimAt(claw, 1); await page.waitForTimeout(1500);
+  fist.armor = await page.evaluate((ci) => ({ clawAlive: G.room.enemies.some((e) => e.i === ci || FOES[e.ch].kind === 'claw'), awake: !bossAsleep(), fistBack: G.room.stones.length > 0 || P.ammo > 0 }), claw); fist.armor.hit = h4 && h4.hit;
+  // real pointer: a pull from DO-T throws; a tap on DO-T does not
+  F0 = await fistSetup(); for (let k = 0; k < 30 && !(await page.evaluate(() => { const t = tilePos(P.i); return Math.hypot(P.dx - t.x, P.dy - t.y) < 1; })); k++) { await page.waitForTimeout(100); }   // let DO-T settle where he is drawn
+  const box = await page.evaluate(() => { const r = CNV.elt.getBoundingClientRect(); return { x: r.left, y: r.top, width: r.width }; }), sc = box.width / 540;   // the game canvas (p5 keeps hidden offscreen canvases too)
+  const me = await page.evaluate(() => ({ x: P.dx, y: P.dy - 18 }));
+  const px = box.x + me.x * sc, py = box.y + me.y * sc;
+  await page.mouse.move(px, py); await page.mouse.down(); await page.mouse.up(); await page.waitForTimeout(200);
+  fist.tapKeeps = await page.evaluate(() => P.ammo === 1);
+  fist.diag = await page.evaluate(([x, y]) => ({ busy: G.busy, ov: G.overlay, scene: G.scene, path: !!G.path, ammo: P.ammo, dx: P.dx, dy: P.dy, near: Math.hypot(x - P.dx, y - (P.dy - 18)), start: fistDragStart(x, y), drag: G.drag }), [me.x, me.y]);
+  await page.mouse.move(px, py); await page.mouse.down(); await page.mouse.move(px + 30 * sc, py - 50 * sc, { steps: 6 }); await page.mouse.move(px + 45 * sc, py - 80 * sc, { steps: 4 });   // pull up-right: the fist flies down-left into the room
+  await shot('04_fist_aim'); await page.mouse.up(); await page.waitForTimeout(80); await shot('05_fist_flight'); await page.waitForTimeout(1500);
+  fist.pullThrows = await page.evaluate(() => !!G.lastFist && G.lastFist.hit === 'miss' && P.ammo === 0 && G.room.stones.length === 1);
+  fist.noRoom = await page.evaluate(() => { startDebug('practice'); G.room.enemies = []; P.ammo = 1; G.busy = 0; const a = tilePos(P.i); let r = null; for (let k = 0; k < 64 && !r; k++) { const an = k / 64 * Math.PI * 2, f = fistFlight(Math.cos(an), Math.sin(an), 1); if (f.hit === 'wall' && f.before === P.i) { r = { an, res: launchFist(Math.cos(an), Math.sin(an), 1), ammo: P.ammo, turns: P.turns }; } } return r || { none: true }; });
+  check('rocket fist: straight into the wall beside DO-T = no throw, no turn', fist.noRoom.none || (fist.noRoom.res === false && fist.noRoom.ammo === 1), fist.noRoom);
+  check('rocket fist: direct hit explodes + kills', fist.direct.hit === 'enemy' && fist.direct.enemies === 0 && fist.direct.fistOnFloor && fist.direct.ammo === 0, fist.direct);
+  check('rocket fist: a miss lands on the floor', fist.miss.hit === 'miss' && fist.miss.stones === 1 && fist.miss.ammo === 0, fist.miss);
+  check('rocket fist: the blast also catches the enemy next to it', fist.blastLeft === 0, { left: fist.blastLeft });
+  check('rocket fist: armor CLANKs, wakes the Crab, fist comes back', fist.armor.hit === 'enemy' && fist.armor.clawAlive && fist.armor.awake && fist.armor.fistBack, fist.armor);
+  check('rocket fist: a pull on DO-T throws, a tap does not', fist.tapKeeps && fist.pullThrows, { tapKeeps: fist.tapKeeps, pullThrows: fist.pullThrows, diag: fist.diag });
+
   // the green / red move preview never calls a hex safe when DO-T would be hit
   const zap = await page.evaluate(() => {
     const st = { moves: 0, zaps: 0, safeButHit: 0 }, rooms = ['nursery', 'garden', 'mess', 'refinery', 'array', 'nest'], keep = SETTINGS.timer.turns;

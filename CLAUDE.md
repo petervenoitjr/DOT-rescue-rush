@@ -1,6 +1,6 @@
 # DO-T: Lost and Found
 
-A hex tactics game (Hoplite rules) aboard the space station from **All Humans Are Dead (AHAD)**. DO-T the robot rescues 8 babies before the station self-destructs. One file of plain **p5.js 2.3.4** (global mode) that pastes straight into the p5.js web editor. Owner: **Peter Venoit, Jr.** Version **4.7.2** (2026-11-12).
+A hex tactics game (Hoplite rules) aboard the space station from **All Humans Are Dead (AHAD)**. DO-T the robot rescues 8 babies before the station self-destructs. One file of plain **p5.js 2.3.4** (global mode) that pastes straight into the p5.js web editor. Owner: **Peter Venoit, Jr.** Version **4.8** (2026-11-12).
 
 Live page (private, Peter's account): https://claude.ai/artifact/Si1ZmXPJCgSx5KqHKbUVPR
 
@@ -12,6 +12,7 @@ Live page (private, Peter's account): https://claude.ai/artifact/Si1ZmXPJCgSx5Kq
 - **Style is DOT-UI / AHAD** (the `dot-ui-style` and `ahad-*` skills): thin wide-spaced Exo 2 caps via `txt()`, chamfered outlines, colour = meaning (cyan normal, amber do-this-now, green safe/done, violet secondary, magenta alarm, red danger). Enemy, fist and crab art is copied from DO-T RUSH; keep it in step with that game.
 - **Credit line** "Made by Peter Venoit, Jr. — 2026" stays on the title, pause and end screens (`SETTINGS.credit`).
 - **KJV scripture** is part of the game (title, circuits, win/lose). Quote KJV exactly; `DVERSES` holds them.
+- **Rocket fist = slingshot (v4.8, from Peter's DOT Blaster / Drag'n'Boom):** a pull that starts on DO-T (or anywhere after tapping FIST) aims; release launches. `fistFlight()` is the single source of truth for where a throw goes (enemy / wall / miss); `launchFist()` → `fistLands()` explodes (`SETTINGS.fist.blast`) and drops the fist for pickup. A pull shorter than `deadzone` is a normal tap. A throw straight into the wall beside DO-T is refused (no free blast at his feet).
 - **One source of truth for attacks:** `zapHits()` decides who a move zaps, for BOTH the green preview and the real move. Keep it that way so the preview can never lie.
 - Debug runs (`G.debugId`) must never write to the best score or the playtest log.
 - Before shipping: set `SETTINGS.debug.showButton = false`.
@@ -20,7 +21,7 @@ Live page (private, Peter's account): https://claude.ai/artifact/Si1ZmXPJCgSx5Kq
 ```bash
 npm install                      # once: p5 2.3.4 + playwright 1.63.0 (dev only)
 npx playwright install chromium  # once, if this machine has no Playwright Chromium
-npm test                         # headless smoke test, 17 checks (serves the folder over http), exit 0 = pass
+npm test                         # headless smoke test, 23 checks (serves the folder over http), exit 0 = pass
 node tools/playtest.js --no-song # same, with the song hidden: tests the composed-music fallback
 npm run shots                    # same, plus screenshots in playtest-shots/
 npm run mobile                   # emulated phone, no autoplay override: a finger tap must unlock sound
@@ -38,7 +39,7 @@ Publishing to the artifact: send `dot_hex_publish.html` plus `assets/music/AHAD_
 ## File map
 | File | What it is |
 |---|---|
-| `sketch_dot_hex.js` | The whole game (v4.7.2). Sections in order: SETTINGS (+ DEBUG_SCENARIOS, FOES, BLESSINGS, BIOMES, WORLD) → DotRig (AHAD rig, unchanged) → THEME (DO-T look, text, sounds) → DOT-UI kit → AHAD art (Biter, Beamer, Rocket Fist, Crab) → hex engine (maths, world gen, player turn, zap preview, enemy turn, alarms, puzzles, save/log, input, drawing, screens). |
+| `sketch_dot_hex.js` | The whole game (v4.8). Sections in order: SETTINGS (+ DEBUG_SCENARIOS, FOES, BLESSINGS, BIOMES, WORLD) → DotRig (AHAD rig, unchanged) → THEME (DO-T look, text, sounds) → DOT-UI kit → AHAD art (Biter, Beamer, Rocket Fist, Crab) → hex engine (maths, world gen, player turn, zap preview, enemy turn, alarms, puzzles, save/log, input, drawing, screens). |
 | `dot_hex_page.html` | Standalone page: open it to play. Generated. |
 | `dot_hex_publish.html` | Page body for the claude.ai artifact. Generated. |
 | `assets/sfx/` | Sound effects (DO-T RUSH names), packed into the sketch by the build. Has `victory.m4a`; README lists the other names. |

@@ -1,6 +1,6 @@
 {
   "name": "dot-lost-and-found",
-  "version": "4.7.2",
+  "version": "4.8.0",
   "private": true,
   "description": "DO-T: Lost and Found - a hex tactics game (Hoplite rules) aboard the station from All Humans Are Dead. p5.js 2.3.4.",
   "author": "Peter Venoit, Jr.",

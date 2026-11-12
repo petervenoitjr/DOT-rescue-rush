@@ -1,6 +1,6 @@
 # DO-T: Lost and Found — handoff
 
-**Status (v4.7.2, 2026-11-12):** fully playable start to finish; 17/17 headless checks pass (15/15 with `--no-song`). Not yet played by a child or on a real phone. Pouncer and Brute art are placeholders.
+**Status (v4.8, 2026-11-12):** fully playable start to finish; 23/23 headless checks pass (15/15 with `--no-song`). Not yet played by a child or on a real phone. Pouncer and Brute art are placeholders.
 
 ## The game
 DO-T wakes on The Dock of an AHAD station that is about to self-destruct (650 turns). Eight babies in glowing pods have drifted across a 4x4 grid of sectors plus three ducts. Every tap is one turn, then every enemy acts (Hoplite rules): moving IS attacking. DO-T carries up to 2 babies home; bringing all 8 back wins, or he can launch the escape pod early with fewer. Repairing a sector's circuit (a puzzle) turns its lights on, stops its alarm and gives an upgrade.
@@ -26,7 +26,7 @@ DO-T wakes on The Dock of an AHAD station that is about to self-destruct (650 tu
 - **Green / red preview:** `movePreview()` simulates the zap, drops enemies it would kill, and re-runs `threatMap(skip)` so a hex is red only if a SURVIVOR can hit it. Green hex = zap; green + red X = zap but still hit. Validated: 0 "safe but hit" in hundreds of random moves.
 - **Telegraph:** `threatMap()` (melee = adjacent, archer = straight lines, acid).
 - **Enemy turn:** `enemyPhase()`.
-- **Rocket fist:** one fist; it lands on the target hex and must be walked over. On an armored target it bounces back one hex.
+- **Rocket fist (v4.8):** the DOT Blaster slingshot (Peter's `dot-blaster-1.0.0`, Drag'n'Boom from DO-T: Spire Boost), adapted to turns: put a finger on DO-T, pull back, let go. Pull length = distance (`minReach` 1.2 → `throwRange` 3 hexes, +1 with RANGE). The big fist flies free (not on hex lines) and explodes on the first enemy (hit size 0.42 hex) or wall: blast radius 1, 1 damage each, armor CLANKs, Crab wakes. Nothing hit = a miss, the fist lands on the floor. The aim line shows only half the flight (`aimPreview`), so judging distance is the skill. Not taken from the Blaster: slow motion / focus meter (meaningless in a turn-based game), combos.
 - **Crab Worker** (Security Bay inside Hydro Labs): asleep until DO-T is within 3 hexes or throws; claws and shell armored (CLANK); shield-bump a claw INTO the shell from the hex beyond it = CRACK; both gone = eye opens, 3 hp; claws pinch adjacent hexes; every 2 turns it lobs 3 acid bubbles (green rings) that land next turn. Reward: a free upgrade. `genRoom` guarantees the baby and both crack hexes are reachable.
 - **Self-destruct + alarms:** `SETTINGS.timer` (650 turns; warps cost 6). `alarmOn()`: sectors with `alarm: true` are dark from the start; below 35% time EVERY sector whose circuit isn't repaired (`R.lit`) goes into alarm. Alarm = red vignette, siren, a Biter every 7 turns (max 3), telegraphed a turn ahead.
 - **Circuits:** `openSite()` → `makePuzzle()`: wire (connect dots 1-6), power (math incl. Ohm's law), cables (colour match). Wrong = sparks, no penalty.
