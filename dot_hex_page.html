@@ -14,6 +14,7 @@
 //  v4.5 (2026-11-12): our own soundtrack, composed live in code (MUSIC): one riff, 12 sections that follow the game, mood layers that ease in (tension, heartbeat, hope, clock, calm). Old music files scrapped.
 //  v4.6 (2026-11-12): SONG mode: Peter's Suno song (AHAD every mood) cut into bar-locked loops, one per section; mood layers ride on top; composed music is the fallback.
 //  v4.7 (2026-11-12): music cool-down (hold / settle / urgent), sections resume where they left off, alt song B for variety (loops alternate A/B).
+//  v4.7.1 (2026-11-12): phone sound fix: unlock on the END of a tap (touchend/pointerup/click), silent <audio> keeps iPhone Web Audio on with the silent switch, resume after interruptions; AUDIO status line in the pause menu.
 //  Paste this whole file into the p5.js web editor (p5 2.x) as sketch.js.
 // =====================================================================
 
@@ -2032,7 +2033,38 @@ function pcmOut(buf, notes) {   // rendered audio -> 16-bit stereo, base64 (for 
 }
 function saveSound() { try { localStorage.setItem(SETTINGS.savePrefix + '_sound', JSON.stringify({ sfx: SND.on, music: SND.music })); } catch (_) { /* ignore */ } }
 function loadSound() { try { const o = JSON.parse(localStorage.getItem(SETTINGS.savePrefix + '_sound') || 'null'); if (o) { SND.on = o.sfx !== false; SND.music = o.music !== false; } } catch (_) { /* ignore */ } }
-function sndInit() { if (SND.ctx) { if (SND.ctx.state !== 'running') { SND.ctx.resume(); } return; } try { const AC = window.AudioContext || window.webkitAudioContext; SND.ctx = new AC(); SND.master = SND.ctx.createGain(); SND.master.gain.value = SETTINGS.audio.volume; SND.master.connect(SND.ctx.destination); sndLoadFiles(); } catch (_) { SND.ctx = null; } try { if (navigator.audioSession) { navigator.audioSession.type = 'playback'; } } catch (_) { /* iPhone: let music play with the silent switch on (Safari 17+) */ } }
+// ---- PHONES: browsers only start sound inside a real tap. iPhone needs the END of a tap (touchend / pointerup / click, not pointerdown),
+//      a sound played right then, and (for the ring/silent switch) a playing <audio> element, or Web Audio stays muted. ----
+function sndInit() {
+  if (!SND.ctx) {
+    try { if (navigator.audioSession) { navigator.audioSession.type = 'playback'; } } catch (_) { /* Safari 17+: play with the silent switch on */ }
+    try { const AC = window.AudioContext || window.webkitAudioContext; SND.ctx = new AC(); SND.master = SND.ctx.createGain(); SND.master.gain.value = SETTINGS.audio.volume; SND.master.connect(SND.ctx.destination); sndLoadFiles(); } catch (_) { SND.ctx = null; return; }
+  }
+  if (SND.ctx.state !== 'running') { try { const pr = SND.ctx.resume(); if (pr && pr.catch) { pr.catch(() => { /* not allowed yet */ }); } } catch (_) { /* ignore */ } }
+}
+function sndSilentWav() {   // half a second of silence as a WAV, for the iPhone <audio> trick
+  const n = 4000, b = new ArrayBuffer(44 + n * 2), v = new DataView(b), w = (o, t) => { for (let k = 0; k < t.length; k++) { v.setUint8(o + k, t.charCodeAt(k)); } };
+  w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, 8000, true); v.setUint32(28, 16000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
+  return URL.createObjectURL(new Blob([b], { type: 'audio/wav' }));
+}
+function sndUnlock() {   // runs at the end of every tap / key press
+  sndInit(); if (!SND.ctx) { return; }
+  try { const src = SND.ctx.createBufferSource(); src.buffer = SND.ctx.createBuffer(1, 1, 22050); src.connect(SND.ctx.destination); src.start(0); } catch (_) { /* ignore */ }
+  try {
+    if (!SND.keepAwake) { SND.keepAwake = new Audio(sndSilentWav()); SND.keepAwake.loop = true; SND.keepAwake.setAttribute('playsinline', ''); SND.keepAwake.volume = 0.01; }
+    if (SND.keepAwake.paused) { const pr = SND.keepAwake.play(); if (pr && pr.catch) { pr.catch(() => { /* not allowed yet */ }); } }
+  } catch (_) { /* ignore */ }
+  SND.unlockTaps = (SND.unlockTaps || 0) + 1;
+}
+function sndStatus() {   // e.g. AUDIO RUNNING  //  SONGS 2/2  //  TAPS 3
+  const st = SND.ctx ? SND.ctx.state.toUpperCase() : 'OFF', n = (SND.songBufs || []).filter(Boolean).length;
+  return 'AUDIO ' + st + '  //  SONGS ' + (SND.songState === 'missing' ? 'NONE' : n + '/' + SONG.songs.length) + '  //  TAPS ' + (SND.unlockTaps || 0) + (SND.keepAwake && !SND.keepAwake.paused ? '  //  IOS FIX ON' : '');
+}
+function sndWatch() {   // listen on the whole page, so any tap anywhere (also outside the canvas) unlocks sound
+  for (const ev of ['touchend', 'pointerup', 'click', 'keydown']) { document.addEventListener(ev, sndUnlock, { capture: true, passive: true }); }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && SND.ctx && SND.ctx.state !== 'running') { sndInit(); } });
+}
 function tone(type, f0, f1, t0, dur, vol, o) {
   const c = SND.ctx, osc = c.createOscillator(), g = c.createGain(); o = o || {};
   osc.type = type; osc.frequency.setValueAtTime(Math.max(20, f0), t0); if (f1 && f1 !== f0) { osc.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t0 + dur); }
@@ -2106,7 +2138,7 @@ function toggleMode(m) {
 // =====================================================================
 function setup() {
   CNV = createCanvas(W, H); pixelDensity(Math.min(2, window.devicePixelRatio || 1));
-  CNV.elt.style.touchAction = 'none';
+  CNV.elt.style.touchAction = 'none'; sndWatch();
   const fit = () => { const b = document.body.getBoundingClientRect(), bw = b.width || window.innerWidth, bh = (b.height > 50 ? b.height : window.innerHeight); const k = Math.min(bw / W, bh / H); CNV.elt.style.width = W * k + 'px'; CNV.elt.style.height = H * k + 'px'; };
   fit(); window.addEventListener('resize', fit);
   CNV.elt.addEventListener('pointerdown', (e) => { e.preventDefault(); const p = logicalPoint(e); onTap(p.x, p.y); }, { passive: false });
@@ -2247,6 +2279,7 @@ function drawOverlay() {
     button(90 + (W - 170) / 2, 494, (W - 170) / 2, 50, 'MUSIC: ' + (SND.music ? 'ON' : 'OFF'), () => { SND.music = !SND.music; saveSound(); }, { col: SND.music ? TR.gn : TR_OFF });
     button(80, 556, W - 160, 50, THEME.text.restart, () => { newRun(); }, { col: TR.am });
     button(80, 618, W - 160, 50, THEME.text.titleBtn, () => { G.scene = 'title'; G.overlay = null; }, { col: TR.mg });
+    txt(sndStatus(), W / 2, 680, 9, TR.cy2, CENTER, 400, 3);   // audio check line: tell the developer what the phone reports
     credit(700);
   } else if (o === 'help') {
     panel(24, 70, W - 48, H - 140); heading(THEME.text.howBtn, 104);
