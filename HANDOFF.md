@@ -1,6 +1,6 @@
 # DO-T: Lost and Found — handoff
 
-**Status (v4.5, 2026-11-12):** fully playable start to finish; 13/13 headless checks pass. Not yet played by a child or on a real phone. Pouncer and Brute art are placeholders.
+**Status (v4.6, 2026-11-12):** fully playable start to finish; 15/15 headless checks pass (14/14 with `--no-song`). Not yet played by a child or on a real phone. Pouncer and Brute art are placeholders.
 
 ## The game
 DO-T wakes on The Dock of an AHAD station that is about to self-destruct (650 turns). Eight babies in glowing pods have drifted across a 4x4 grid of sectors plus three ducts. Every tap is one turn, then every enemy acts (Hoplite rules): moving IS attacking. DO-T carries up to 2 babies home; bringing all 8 back wins, or he can launch the escape pod early with fewer. Repairing a sector's circuit (a puzzle) turns its lights on, stops its alarm and gives an upgrade.
@@ -12,6 +12,7 @@ DO-T wakes on The Dock of an AHAD station that is about to self-destruct (650 tu
 - **Sector looks:** `BIOMES` → `DLOOK` palettes.
 - **Words:** `THEME.text`, `THEME.help`; verses in `DVERSES` (KJV).
 - **Sounds:** the DO-T RUSH setup. Files in `assets/sfx/` are packed into the sketch (`EMBED_ASSETS`) by `tools/build.py`; `SETTINGS.audio.files` maps game events to file names; anything without a file uses the synthesized `THEME.sfx` sound. DO-T RUSH's sound is fully applied: its only sound file, `victory.m4a` (Peter's GREAT JOB! sound; plays on a boss kill and when all 8 are safe), and its beeps (`RUSH_BEEPS`, copied exactly from DO-T RUSH `src/audio.js`) for zap, kill, thrust (jump), step (turn), hurt, Beamer shot, pickups (byte) and button taps (ui). Events DO-T RUSH has no sound for (fist, shield bump, upgrade, vent fall, warp, Crab roar, acid, alarm siren...) keep this game's synthesized sounds.
+- **Song mode (v4.6, the default):** Peter's Suno song `assets/music/AHAD_every_mood.mp3` (prompted with the 12-section brief). Measured: 2:54, one tempo (~112 bpm, local 110.5-113.6), G minor, loudness flat within ~5 dB: Suno ignored the per-section tempos and most dynamics. So: `SONG.loops` = one bar-locked loop per section (picked by `tools/remap/plan.py` for the smoothest seam; browser decode offset measured = 0 samples), `SONG.mix` restores quiet/loud per section, Dock Mash speeds up to +6%, mood layers ride on top in G. Mapping follows the song's order (Suno roughly kept the prompt order) checked against measurements; it was NOT chosen by ear.
 - **Music: our own soundtrack, composed live in code** (v4.5; the AHAD/JFobbsTunes files were scrapped at Peter's request). Brief: instrumental, atmospheric, spacious, lots of reverb like a creepy empty warehouse (`warehouseIR`, 4.8 s). One riff (`MUSIC.riff`, D minor) through 12 sections, each picked by `musicSection()`:
   intro = title · comic = how-to-play / pause · chapter = The Dock · explore = a sector (builds over 16 bars) · stealth = ducts and the sleeping Crab · enemy = an enemy within 2 hexes or able to hit DO-T (held 4 s) · repair = circuit puzzle / upgrade (major) · dock = self-destruct under 35% (120 → 150 bpm as time runs out) · boss = Crab awake with claws · drop = both claws cracked · ending = win (major) · outro = lose.
   **Mood layers** ease in on top of any section (`moodsNow()` → `musicMix()`, `MUSIC.ease` = 2.5 s): tension drone + shaker as an enemy closes in (5 hexes → adjacent), DO-T's heartbeat on his last heart, high bells while carrying babies, a ticking clock under 50% time, and calm (cleared sector: drums to 35%, pads open).
@@ -40,7 +41,7 @@ DOT-UI (AHAD Prototype 11 HUD) on a tron grid; DO-T is the AHAD `DotRig`; Biter,
 5. **Is the red X on green hexes big enough** for children to notice?
 
 ## Suggested next steps
-0. **Listen to the soundtrack** (`npm run music` → `music-preview/`, or play) and tune `MUSIC`: the riff, each section's bpm/level, the mood layers. It was balanced by loudness measurement only; nobody has heard it yet.
+0. **Listen to the song tour** (`npm run music` → `music-preview/00_SONG_TOUR...`) and remap any section in `SONG.loops` by ear. The composed fallback is tuned in `MUSIC`: the riff, each section's bpm/level, the mood layers. It was balanced by loudness measurement only; nobody has heard it yet.
 1. Child playtest on a real phone; tune `SETTINGS.timer.turns` from the log.
 2. AHAD art for Pouncer and Brute.
 3. Optional WAIT action (DO-T has no way to pass a turn; a boxed-in DO-T with the shield cooling and no energy or fist can't act. Never seen in 60+ test runs, but possible).

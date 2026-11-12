@@ -10,7 +10,8 @@
 //
 //  p5 2.3.4 is served from node_modules (no CDN needed); the Google font request is stubbed (fallback fonts).
 //  --shots writes screenshots to playtest-shots/ (git-ignored).
-//  --music writes a WAV preview of every music section (and the mood layers) to music-preview/.
+//  --music writes WAV previews to music-preview/ (the song as the game plays it, or the composed music).
+//  --no-song hides the song file, to test the composed-music fallback.
 //  Exit code 0 = everything passed.
 // =====================================================================
 const path = require('path');
@@ -21,15 +22,25 @@ const ROOT = path.resolve(__dirname, '..');
 const PAGE = path.join(ROOT, 'dot_hex_page.html');
 const P5 = path.join(ROOT, 'node_modules', 'p5', 'lib', 'p5.min.js');   // p5's package exports hide lib/, so use the path directly
 const SHOTS = process.argv.includes('--shots') ? path.join(ROOT, 'playtest-shots') : null;
+const NOSONG = process.argv.includes('--no-song');   // test the composed-music fallback (the song file "missing")
+// a tiny web server for the project folder (browsers won't load the song MP3 from a file:// page)
+const http = require('http');
+const TYPES = { '.html': 'text/html', '.js': 'application/javascript', '.mp3': 'audio/mpeg', '.json': 'application/json' };
+const server = http.createServer((q, r) => {
+  const f = path.join(ROOT, decodeURIComponent(q.url.split('?')[0]));
+  if (!f.startsWith(ROOT) || !fs.existsSync(f) || fs.statSync(f).isDirectory() || (NOSONG && f.endsWith('.mp3'))) { r.writeHead(404); r.end(); return; }
+  r.writeHead(200, { 'Content-Type': TYPES[path.extname(f)] || 'application/octet-stream' }); fs.createReadStream(f).pipe(r);
+});
 
 (async () => {
+  await new Promise((ok) => server.listen(0, ok)); const URL = 'http://localhost:' + server.address().port + '/dot_hex_page.html';
   const browser = await chromium.launch(Object.assign({ args: ['--autoplay-policy=no-user-gesture-required'] }, process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}));
   const page = await browser.newPage({ viewport: { width: 540, height: 960 } });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.route('**/p5.min.js', (r) => r.fulfill({ path: P5, contentType: 'application/javascript' }));
   await page.route('https://fonts.googleapis.com/**', (r) => r.fulfill({ body: '', contentType: 'text/css' }));
-  await page.goto('file://' + PAGE);
+  await page.goto(URL);
   await page.waitForTimeout(1200);
   if (SHOTS) { fs.mkdirSync(SHOTS, { recursive: true }); }
   const shot = async (n) => { if (SHOTS) { await page.waitForTimeout(300); await page.screenshot({ path: path.join(SHOTS, n + '.png') }); } };
@@ -129,12 +140,23 @@ const SHOTS = process.argv.includes('--shots') ? path.join(ROOT, 'playtest-shots
   });
   check('victory file + DO-T RUSH beeps play (' + audio.decoded.join(', ') + ')', audio.decoded.length === audio.packed.length && audio.victoryFromFile && audio.rushBeeps === 3, audio);
 
-  // live music: every game moment picks the right section, the band plays notes, and mood layers fade in
+  // music: every game moment picks the right section. SONG mode (default): the song's loop for that section plays, switches land
+  // exactly on a bar line, and the mood layers ride on top. --no-song: the composed music plays instead (the fallback).
   const music = await page.evaluate(async () => {
     const wait = (ms) => new Promise((r) => setTimeout(r, ms)), seen = {}, keep = SETTINGS.timer.turns;
-    const at = async (label, setup) => {   // wait for the band to actually change section (it switches on the next beat), then count its notes
-      setup(); for (let k = 0; k < 25 && SND.band.sec !== musicSection(); k++) { musicTick(); await wait(100); }
-      const bar = 240000 / MUSIC.sections[musicSection()].bpm; for (let k = 0; k * 100 < bar + 200; k++) { musicTick(); await wait(100); } seen[label] = { sec: SND.band.sec, notes: SND.band.notes - SND.band.secStart };
+    for (let k = 0; k < 60 && SND.songState === 'loading'; k++) { musicTick(); await wait(100); }
+    const song = SONG.on && SND.songState === 'ready';
+    const at = async (label, setup) => {
+      setup();
+      if (song) {
+        for (let k = 0; k < 60 && !(SND.song && SND.song.sec === label && SND.song.pass.when <= SND.ctx.currentTime); k++) { musicTick(); await wait(100); }
+        for (let k = 0; k < 4; k++) { musicTick(); await wait(100); }
+        const P = SND.song.pass, sw = SND.song.lastSwitch || {};
+        seen[label] = { sec: SND.song.sec, playing: P.when <= SND.ctx.currentTime && (P.once || P.end > SND.ctx.currentTime - 0.3), barsIn: Math.round((sw.barsIn || 0) * 1000) / 1000 };
+      } else {
+        for (let k = 0; k < 25 && SND.band.sec !== musicSection(); k++) { musicTick(); await wait(100); }
+        const bar = 240000 / MUSIC.sections[musicSection()].bpm; for (let k = 0; k * 100 < bar + 200; k++) { musicTick(); await wait(100); } seen[label] = { sec: SND.band.sec, notes: SND.band.notes - SND.band.secStart };
+      }
     };
     await at('intro', () => { G.scene = 'title'; G.overlay = null; });
     await at('comic', () => { G.scene = 'title'; G.overlay = 'help'; });
@@ -151,36 +173,52 @@ const SHOTS = process.argv.includes('--shots') ? path.join(ROOT, 'playtest-shots
     // mood layers: hurt + carrying + an enemy 3 hexes away in a normal sector
     startDebug('practice'); G.musicDanger = 0; placeFoes('W', 1); const e = G.room.enemies[0];
     const far = G.room.tiles.map((_, j) => j).find((j) => hexDist(j, P.i) === 3 && isWalk(G.room.tiles[j]) && !enemyAt(j)); if (far !== undefined) { e.i = far; }
-    G.room.enemies = [e]; P.hp = 1; P.carry = 1; musicTick(); const sec = musicSection(), mood = Object.assign({}, SND.band.mood), lv = Object.assign({}, SND.band.lv);
+    G.room.enemies = [e]; P.hp = 1; P.carry = 1;
+    for (let k = 0; k < 30 && song && SND.song.sec !== 'explore'; k++) { musicTick(); await wait(100); }
+    const n0 = SND.band.notes; for (let k = 0; k < 25; k++) { musicTick(); await wait(100); }
+    const sec = musicSection(), mood = Object.assign({}, SND.band.mood), lv = Object.assign({}, SND.band.lv), moodNotes = SND.band.notes - n0, moodOnly = !!SND.band.moodOnly;
     SETTINGS.timer.turns = keep; G.scene = 'title'; G.overlay = null; musicTick();
-    // offline render works
-    const r = await renderMusic('explore', 6, { tension: 1 });
-    return { seen, moodSec: sec, mood, lv, render: { peak: Math.round(r.peak * 100) / 100, notes: r.notes, bytes: r.b64.length } };
+    const r = song ? await renderSongTour([['explore', 4], ['enemy', 4]]) : await renderMusic('explore', 6, { tension: 1 });
+    return { song, songState: SND.songState, seen, moodSec: sec, mood, lv, moodNotes, moodOnly, render: { peak: Math.round(r.peak * 100) / 100, notes: r.notes, bytes: r.b64.length } };
   });
-  const secOk = Object.entries(music.seen).every(([k, v]) => v.sec === k && v.notes > 0);
-  check('live music: all 12 sections reached and playing', secOk, music.seen);
-  check('mood layers ease in (tension, heartbeat, hope bells)', music.mood.tension > 0 && music.lv.heart === 1 && music.lv.hope > 0.4 && music.lv.tension > 0, { sec: music.moodSec, mood: music.mood });
-  check('music renders offline (previews)', music.render.notes > 50 && music.render.peak > 0.05, music.render);
+  if (!NOSONG) { check('song file loads (' + 'assets/music/' + ')', music.song, { state: music.songState }); }
+  else { check('song missing -> composed music takes over', !music.song && music.songState === 'missing', { state: music.songState }); }
+  const secOk = Object.entries(music.seen).every(([k, v]) => v.sec === k && (music.song ? v.playing : v.notes > 0));
+  check((music.song ? 'song loop' : 'composed music') + ': all 12 sections reached and playing', secOk, music.seen);
+  if (music.song) {
+    const off = Object.entries(music.seen).filter(([k, v]) => k !== 'intro' && Math.abs(v.barsIn - Math.round(v.barsIn)) > 0.01);
+    check('song switches land exactly on a bar line', off.length === 0, off);
+  }
+  check('mood layers ease in (tension, heartbeat, hope bells)' + (music.song ? ' over the song' : ''), music.mood.tension > 0 && music.lv.heart === 1 && music.lv.hope > 0.4 && music.lv.tension > 0 && music.moodNotes > 0 && music.moodOnly === music.song, { sec: music.moodSec, mood: music.mood, notes: music.moodNotes });
+  check('music renders offline (previews)', music.render.peak > 0.05, music.render);
 
-  if (process.argv.includes('--music')) {   // write a listenable preview of every section (+ mood demos) to music-preview/
+  const saveWav = (name, r) => {
     const out = path.join(ROOT, 'music-preview'); fs.mkdirSync(out, { recursive: true });
+    const pcm = Buffer.from(r.b64, 'base64'), hdr = Buffer.alloc(44);
+    hdr.write('RIFF', 0); hdr.writeUInt32LE(36 + pcm.length, 4); hdr.write('WAVE', 8); hdr.write('fmt ', 12); hdr.writeUInt32LE(16, 16); hdr.writeUInt16LE(1, 20); hdr.writeUInt16LE(2, 22);
+    hdr.writeUInt32LE(r.sr, 24); hdr.writeUInt32LE(r.sr * 4, 28); hdr.writeUInt16LE(4, 32); hdr.writeUInt16LE(16, 34); hdr.write('data', 36); hdr.writeUInt32LE(pcm.length, 40);
+    fs.writeFileSync(path.join(out, name + '.wav'), Buffer.concat([hdr, pcm])); console.log('  wrote music-preview/' + name + '.wav');
+  };
+  if (process.argv.includes('--music') && music.song) {   // the song as the game plays it: a scripted run through every section
+    const tour = [['intro', 12], ['comic', 9], ['chapter', 14], ['explore', 18], ['explore', 10, { tension: 0.5 }], ['explore', 6, { tension: 1 }], ['enemy', 14],
+      ['explore', 10, { calm: 1 }], ['stealth', 14], ['repair', 14], ['explore', 10, { hope: 1, heart: 1 }], ['dock', 10, { clock: 0.6 }], ['dock', 10, { clock: 1 }, 1.06],
+      ['stealth', 8], ['boss', 18], ['drop', 14], ['ending', 14], ['outro', 8]];
+    saveWav('00_SONG_TOUR_as_the_game_plays_it', await page.evaluate((t) => renderSongTour(t), tour));
+    for (const k of ['intro', 'comic', 'chapter', 'explore', 'stealth', 'enemy', 'repair', 'dock', 'boss', 'drop', 'ending', 'outro']) {
+      saveWav('song_' + k, await page.evaluate((x) => renderSongTour([[x, x === 'outro' ? 8 : 16]]), k));
+    }
+  } else if (process.argv.includes('--music')) {   // composed music previews
     const list = [['01_intro', 'intro', 40], ['02_comic', 'comic', 32], ['03_chapter', 'chapter', 32], ['04_exploring', 'explore', 45], ['05_stealth', 'stealth', 36],
       ['06_enemy_nearby', 'enemy', 24], ['07_repair_puzzle', 'repair', 30], ['08_dock_mash', 'dock', 24], ['08b_dock_mash_last_seconds', 'dock', 20, {}, 1], ['09_boss_fight', 'boss', 30], ['10_drop', 'drop', 24],
       ['11_ending', 'ending', 36], ['12_outro', 'outro', 16], ['13_layers_explore_enemy_creeping_close', 'explore', 30, { tension: 1 }],
       ['14_layers_explore_last_heart_carrying_babies', 'explore', 30, { heart: 1, hope: 1 }], ['15_layers_explore_cleared_clock_ticking', 'explore', 30, { calm: 1, clock: 1 }]];
-    for (const [name, sec, secs, moods, speed] of list) {
-      const r = await page.evaluate(([a, b, c, d]) => renderMusic(a, b, c, d), [sec, secs, moods || {}, speed || 0]);
-      const pcm = Buffer.from(r.b64, 'base64'), hdr = Buffer.alloc(44);
-      hdr.write('RIFF', 0); hdr.writeUInt32LE(36 + pcm.length, 4); hdr.write('WAVE', 8); hdr.write('fmt ', 12); hdr.writeUInt32LE(16, 16); hdr.writeUInt16LE(1, 20); hdr.writeUInt16LE(2, 22);
-      hdr.writeUInt32LE(r.sr, 24); hdr.writeUInt32LE(r.sr * 4, 28); hdr.writeUInt16LE(4, 32); hdr.writeUInt16LE(16, 34); hdr.write('data', 36); hdr.writeUInt32LE(pcm.length, 40);
-      fs.writeFileSync(path.join(out, name + '.wav'), Buffer.concat([hdr, pcm])); console.log('  wrote music-preview/' + name + '.wav');
-    }
+    for (const [name, sec, secs, moods, speed] of list) { saveWav(name, await page.evaluate(([a, b, c, d]) => renderMusic(a, b, c, d), [sec, secs, moods || {}, speed || 0])); }
   }
 
   for (const o of ['map', 'pause', 'help', 'launch', 'win', 'lose']) { await page.evaluate((ov) => { G.scene = 'play'; G.overlay = ov; }, o); await page.waitForTimeout(80); await shot('03_' + o); }
   check('no page errors while drawing', errors.length === 0, errors.slice(0, 3));
 
-  await browser.close();
+  await browser.close(); server.close();
   const failed = results.filter((r) => !r.ok).length;
   console.log('\n' + (results.length - failed) + ' / ' + results.length + ' passed');
   process.exit(failed ? 1 : 0);

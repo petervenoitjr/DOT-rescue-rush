@@ -1,6 +1,6 @@
 # DO-T: Lost and Found
 
-A hex tactics game (Hoplite rules) aboard the space station from **All Humans Are Dead (AHAD)**. DO-T the robot rescues 8 babies before the station self-destructs. One file of plain **p5.js 2.3.4** (global mode) that pastes straight into the p5.js web editor. Owner: **Peter Venoit, Jr.** Version **4.5** (2026-11-12).
+A hex tactics game (Hoplite rules) aboard the space station from **All Humans Are Dead (AHAD)**. DO-T the robot rescues 8 babies before the station self-destructs. One file of plain **p5.js 2.3.4** (global mode) that pastes straight into the p5.js web editor. Owner: **Peter Venoit, Jr.** Version **4.6** (2026-11-12).
 
 Live page (private, Peter's account): https://claude.ai/artifact/Si1ZmXPJCgSx5KqHKbUVPR
 
@@ -20,9 +20,10 @@ Live page (private, Peter's account): https://claude.ai/artifact/Si1ZmXPJCgSx5Kq
 ```bash
 npm install                      # once: p5 2.3.4 + playwright 1.63.0 (dev only)
 npx playwright install chromium  # once, if this machine has no Playwright Chromium
-npm test                         # headless smoke test, 13 checks, exit 0 = pass
+npm test                         # headless smoke test, 15 checks (serves the folder over http), exit 0 = pass
+node tools/playtest.js --no-song # same, with the song hidden: tests the composed-music fallback
 npm run shots                    # same, plus screenshots in playtest-shots/
-npm run music                    # same, plus a WAV of every music section in music-preview/
+npm run music                    # same, plus music-preview/: the song as the game plays it (tour) + every section
 ```
 Play: open `dot_hex_page.html` in a browser (needs internet for p5 + the font), or paste `sketch_dot_hex.js` into editor.p5js.org (p5 2.3.4).
 
@@ -30,17 +31,18 @@ After editing the sketch or adding sounds, rebuild (packs `assets/sfx/` into the
 ```bash
 python3 tools/build.py
 ```
-Publishing to the artifact: send `dot_hex_publish.html` alone (music is code, sound effects are packed in; no supporting files).
+Publishing to the artifact: send `dot_hex_publish.html` plus `assets/music/AHAD_every_mood.mp3` as a supporting file at that same path.
 `dot_hex_publish.html` is what gets published to the claude.ai artifact (the artifact service adds its own wrapper).
 
 ## File map
 | File | What it is |
 |---|---|
-| `sketch_dot_hex.js` | The whole game (v4.5). Sections in order: SETTINGS (+ DEBUG_SCENARIOS, FOES, BLESSINGS, BIOMES, WORLD) → DotRig (AHAD rig, unchanged) → THEME (DO-T look, text, sounds) → DOT-UI kit → AHAD art (Biter, Beamer, Rocket Fist, Crab) → hex engine (maths, world gen, player turn, zap preview, enemy turn, alarms, puzzles, save/log, input, drawing, screens). |
+| `sketch_dot_hex.js` | The whole game (v4.6). Sections in order: SETTINGS (+ DEBUG_SCENARIOS, FOES, BLESSINGS, BIOMES, WORLD) → DotRig (AHAD rig, unchanged) → THEME (DO-T look, text, sounds) → DOT-UI kit → AHAD art (Biter, Beamer, Rocket Fist, Crab) → hex engine (maths, world gen, player turn, zap preview, enemy turn, alarms, puzzles, save/log, input, drawing, screens). |
 | `dot_hex_page.html` | Standalone page: open it to play. Generated. |
 | `dot_hex_publish.html` | Page body for the claude.ai artifact. Generated. |
 | `assets/sfx/` | Sound effects (DO-T RUSH names), packed into the sketch by the build. Has `victory.m4a`; README lists the other names. |
-| `assets/music/` | README only (music is composed live in the sketch) + `source/AHAD.m4a`, kept for reference, unused. |
+| `assets/music/` | `AHAD_every_mood.mp3` (the Suno song, SONG mode) + README (how to remap) + `source/AHAD.m4a` (reference, unused). |
+| `tools/remap/` | `analyze.py` (tempo, key, sections) and `plan.py` (clean bar-locked loops) for remapping a song onto the game. |
 | `tools/build.py` | Build: packs sounds, regenerates both HTML files. |
 | `sketch_dot_hex.v3.js` | v3 as it was before this round of work, kept for reference/diffs. Not used. |
 | `tools/playtest.js` | Headless smoke test (Playwright). |
@@ -52,5 +54,6 @@ Publishing to the artifact: send `dot_hex_publish.html` alone (music is code, so
 - `SETTINGS.debug`: `showButton`, `skipTitle`, `invincible`, `revealMap`, `fixedSeed` (0 = random station).
 - **Playtest log**: every real finished run is stored in localStorage `dot_hex_log` (last 50); the title shows a summary line. Use it to tune `SETTINGS.timer.turns`.
 - **Sound:** `SETTINGS.audio` (volumes, `files` = which DO-T RUSH sound plays for each event). File first, synthesized `THEME.sfx` beep as fallback. Pause menu has SOUND and MUSIC toggles (saved).
-- **Music (live, no files):** `MUSIC` settings block (riff, key, bpm and level per section, mood layers, reverb). Engine `makeMusic()`; `musicSection()` picks the section, `moodsNow()` + `musicMix()` set the layer volumes, which ease over `MUSIC.ease` seconds. Every instrument plays into a named layer (`MUSIC_LAYERS`); add an instrument by giving it a layer. Keep all loops braced (p5 editor).
+- **Song (v4.6):** `SONG` settings block: `file`, `root` (key), `loops` (start/end seconds per section, whole bars), `mix` (gain + muffle per section), `speedUp` (Dock Mash). `makeSongPlayer()` plays loop passes and switches on the next bar; `musicTick()` locks the mood layers to each pass. Web Audio is needed for bar-locked loops; `navigator.audioSession.type = 'playback'` keeps it audible with the iPhone silent switch on (Safari 17+).
+- **Composed music (fallback when the song is missing or `SONG.on = false`):** `MUSIC` settings block (riff, key, bpm and level per section, mood layers, reverb). Engine `makeMusic()`; `musicSection()` picks the section, `moodsNow()` + `musicMix()` set the layer volumes, which ease over `MUSIC.ease` seconds. Every instrument plays into a named layer (`MUSIC_LAYERS`); add an instrument by giving it a layer. Keep all loops braced (p5 editor).
 - Keyboard: W E D X Z A move, 1 thrust, 2 fist, M map, Esc pause.
