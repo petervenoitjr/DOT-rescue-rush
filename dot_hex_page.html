@@ -9,7 +9,8 @@
 //  DO-T: LOST AND FOUND  -  a hex tactics game (Hoplite rules) aboard the station from All Humans Are Dead
 //  Made by Peter Venoit, Jr. - 2026
 //  v4 (2026-11-10): DOT-UI look, AHAD Biter / Beamer / Rocket Fist / Crab art from DO-T RUSH, 6 bug fixes, playtest log.
-//  v4.3 (2026-11-12): DO-T RUSH sound (its beeps + victory.m4a; assets/sfx packed by tools/build.py), AHAD music slots, SOUND / MUSIC toggles.
+//  v4.3 (2026-11-12): DO-T RUSH sound (its beeps + victory.m4a; assets/sfx packed by tools/build.py), SOUND / MUSIC toggles.
+//  v4.4 (2026-11-12): AHAD music from the Drive AHAD-Audio folder (title, sector, alarm/boss, ducts).
 //  Paste this whole file into the p5.js web editor (p5 2.x) as sketch.js.
 // =====================================================================
 
@@ -35,11 +36,12 @@ const SETTINGS = {
   // SOUND: the DO-T RUSH setup. Sound files in assets/sfx/ are built INTO this sketch by tools/build.py (EMBED_ASSETS at the bottom).
   //   'files' says which DO-T RUSH sound plays for each game event: its sound file if there is one, else DO-T RUSH's own beep (RUSH_BEEPS),
   //   else this game's synthesized sound in THEME.sfx (for events DO-T RUSH has no sound for).
-  // MUSIC: .mp3 files in assets/music/ (too big to build in). In the p5 editor, upload them (Sketch > Upload file) with these names.
+  // MUSIC: files in assets/music/ (too big to build in). In the p5 editor, upload them (Sketch > Upload file) with these names.
   audio: {
     volume: 0.7, sfxVolume: 0.6, musicVolume: 0.45,
     files: { zap: 'zap', kill: 'kill', leap: 'jump', throw: 'fist', hurt: 'hurt', shoot: 'shoot', pick: 'byte', tap: 'ui', bash: 'block', bless: 'tool', victory: 'victory', step: 'turn' },   // victory = boss down / all 8 safe (big moments only)
-    music: { title: 'title', play: 'play', alarm: 'alarm', boss: 'boss' }   // file names without .mp3; a missing track just stays quiet
+    // AHAD music (Google Drive: AHAD DOT 21 / AHAD Workshop / AHAD-Audio). File names in assets/music/; a missing track just stays quiet.
+    music: { title: 'AHAD.mp3', play: 'AHAD-JFobbsTunes1_1_01.mp3', alarm: 'AHAD-JFobbsTunes1_2_01.mp3', boss: 'AHAD-JFobbsTunes1_2_01.mp3', duct: 'AHAD-JFobbsTunes1_4_01.mp3' }
   },
   timer: { turns: 650, alarmAllAt: 0.35 },   // SELF-DESTRUCT: turns before the station blows. Below 35% left, every dark sector's alarm goes off
   alarm: { every: 7, max: 3 },          // alarm sectors: a new enemy crawls out every 7 turns (max 3) until the lights are back
@@ -1595,10 +1597,10 @@ function playFile(name, vol) {
   const buf = SND.buffers[name]; if (!buf) { return false; }
   const s = SND.ctx.createBufferSource(), g = SND.ctx.createGain(); s.buffer = buf; g.gain.value = (vol || 1) * SETTINGS.audio.sfxVolume / SETTINGS.audio.volume; s.connect(g); g.connect(SND.master); s.start(); return true;
 }
-// MUSIC: one looping <audio> track: assets/music/<name>.mp3 next to the page, or <name>.mp3 uploaded to the p5 editor.
+// MUSIC: one looping <audio> track: assets/music/<file> next to the page, or <file> uploaded to the p5 editor.
 function musicWanted() {
   const M = SETTINGS.audio.music; if (G.scene !== 'play' || !G.room) { return M.title; }
-  if (G.room.def.boss && G.room.enemies.length) { return M.boss; } if (alarmOn()) { return M.alarm || M.play; } return M.play;
+  if (G.room.def.boss && G.room.enemies.length) { return M.boss; } if (alarmOn()) { return M.alarm || M.play; } if (G.room.def.parent) { return M.duct || M.play; } return M.play;
 }
 function musicTick() {
   if (!SND.ctx) { return; }   // browsers allow sound only after the first tap
@@ -1606,7 +1608,7 @@ function musicTick() {
   const want = SND.on && SND.music ? musicWanted() : null;
   if (!want) { if (!SND.player.paused) { SND.player.pause(); } SND.track = null; return; }
   if (SND.track === want || SND.track === 'missing:' + want) { return; }
-  SND.track = want; SND.tries = [want + '.mp3']; SND.player.src = 'assets/music/' + want + '.mp3';   // beside the page, else uploaded to the p5 editor by bare name
+  SND.track = want; SND.tries = [want]; SND.player.src = 'assets/music/' + want;   // beside the page, else uploaded to the p5 editor by bare name
   SND.player.volume = SETTINGS.audio.musicVolume; const pr = SND.player.play(); if (pr) { pr.catch(() => { /* no file or not allowed yet: stay quiet */ }); }
 }
 function saveSound() { try { localStorage.setItem(SETTINGS.savePrefix + '_sound', JSON.stringify({ sfx: SND.on, music: SND.music })); } catch (_) { /* ignore */ } }

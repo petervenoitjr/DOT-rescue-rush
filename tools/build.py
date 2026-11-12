@@ -36,7 +36,7 @@ def main():
         embed['assets/sfx/' + name] = 'data:%s;base64,%s' % (TYPES[ext], base64.b64encode(data).decode('ascii'))
         print('  sfx   %-22s %7d bytes' % (name, len(data)))
     music_dir = os.path.join(ROOT, 'assets', 'music')
-    music = sorted(n for n in os.listdir(music_dir) if n.lower().endswith('.mp3')) if os.path.isdir(music_dir) else []
+    music = sorted(n for n in os.listdir(music_dir) if os.path.splitext(n)[1].lower() in TYPES) if os.path.isdir(music_dir) else []
     for n in music:
         print('  music %-22s (not packed: keep it next to the page / upload it to the p5 editor)' % n)
 

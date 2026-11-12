@@ -1,6 +1,6 @@
 # DO-T: Lost and Found
 
-A hex tactics game (Hoplite rules) aboard the space station from **All Humans Are Dead (AHAD)**. DO-T the robot rescues 8 babies before the station self-destructs. One file of plain **p5.js 2.3.4** (global mode) that pastes straight into the p5.js web editor. Owner: **Peter Venoit, Jr.** Version **4.3** (2026-11-12).
+A hex tactics game (Hoplite rules) aboard the space station from **All Humans Are Dead (AHAD)**. DO-T the robot rescues 8 babies before the station self-destructs. One file of plain **p5.js 2.3.4** (global mode) that pastes straight into the p5.js web editor. Owner: **Peter Venoit, Jr.** Version **4.4** (2026-11-12).
 
 Live page (private, Peter's account): https://claude.ai/artifact/Si1ZmXPJCgSx5KqHKbUVPR
 
@@ -29,6 +29,7 @@ After editing the sketch or adding sounds, rebuild (packs `assets/sfx/` into the
 ```bash
 python3 tools/build.py
 ```
+Publishing to the artifact: send `dot_hex_publish.html` plus the 4 MP3s in `assets/music/` as supporting files at the same paths (the artifact host serves .mp3 but not .m4a).
 `dot_hex_publish.html` is what gets published to the claude.ai artifact (the artifact service adds its own wrapper).
 
 ## File map
@@ -38,7 +39,7 @@ python3 tools/build.py
 | `dot_hex_page.html` | Standalone page: open it to play. Generated. |
 | `dot_hex_publish.html` | Page body for the claude.ai artifact. Generated. |
 | `assets/sfx/` | Sound effects (DO-T RUSH names), packed into the sketch by the build. Has `victory.m4a`; README lists the other names. |
-| `assets/music/` | AHAD music `.mp3` (title, play, alarm, boss); not packed; README lists names. |
+| `assets/music/` | AHAD music (from Peter's Drive): 4 MP3s used by the game, `source/AHAD.m4a` original; not packed into the sketch; README says which plays where. |
 | `tools/build.py` | Build: packs sounds, regenerates both HTML files. |
 | `sketch_dot_hex.v3.js` | v3 as it was before this round of work, kept for reference/diffs. Not used. |
 | `tools/playtest.js` | Headless smoke test (Playwright). |

@@ -123,10 +123,17 @@ const SHOTS = process.argv.includes('--shots') ? path.join(ROOT, 'playtest-shots
     let played = 0; const real = playFile; playFile = (n, v) => { const ok = real(n, v); if (ok) { played++; } return ok; };
     let beeps = 0; const rb = rushBeep; rushBeep = (n) => { const ok = rb(n); if (ok) { beeps++; } return ok; };
     sfx('victory'); sfx('zap'); sfx('kill'); sfx('hurt'); playFile = real; rushBeep = rb;
-    G.scene = 'title'; musicTick(); await new Promise((r) => setTimeout(r, 600));
-    return { ctx: SND.ctx && SND.ctx.state, packed, decoded, victoryFromFile: played >= 1, rushBeeps: beeps, musicTrack: SND.track };
+    const music = {};
+    const listen = async (label) => { musicTick(); await new Promise((r) => setTimeout(r, 900)); music[label] = { track: SND.track, playing: !!SND.player && !SND.player.paused && SND.player.currentTime > 0, secs: SND.player ? Math.round(SND.player.duration || 0) : 0 }; };
+    G.scene = 'title'; await listen('title');
+    startDebug('practice'); await listen('play');
+    startDebug('alarm'); await listen('alarm');
+    startDebug('boss'); await listen('boss');
+    G.scene = 'title'; G.overlay = null;
+    return { ctx: SND.ctx && SND.ctx.state, packed, decoded, victoryFromFile: played >= 1, rushBeeps: beeps, music };
   });
   check('victory file + DO-T RUSH beeps play (' + audio.decoded.join(', ') + ')', audio.decoded.length === audio.packed.length && audio.victoryFromFile && audio.rushBeeps === 3, audio);
+  check('AHAD music plays for title, sector, alarm and boss', Object.values(audio.music).every((m) => m.playing && !String(m.track).startsWith('missing')), audio.music);
 
   for (const o of ['map', 'pause', 'help', 'launch', 'win', 'lose']) { await page.evaluate((ov) => { G.scene = 'play'; G.overlay = ov; }, o); await page.waitForTimeout(80); await shot('03_' + o); }
   check('no page errors while drawing', errors.length === 0, errors.slice(0, 3));

@@ -1,6 +1,6 @@
 # DO-T: Lost and Found — handoff
 
-**Status (v4.3, 2026-11-12):** fully playable start to finish; 10/10 headless checks pass. Not yet played by a child or on a real phone. Pouncer and Brute art are placeholders.
+**Status (v4.4, 2026-11-12):** fully playable start to finish; 11/11 headless checks pass. Not yet played by a child or on a real phone. Pouncer and Brute art are placeholders.
 
 ## The game
 DO-T wakes on The Dock of an AHAD station that is about to self-destruct (650 turns). Eight babies in glowing pods have drifted across a 4x4 grid of sectors plus three ducts. Every tap is one turn, then every enemy acts (Hoplite rules): moving IS attacking. DO-T carries up to 2 babies home; bringing all 8 back wins, or he can launch the escape pod early with fewer. Repairing a sector's circuit (a puzzle) turns its lights on, stops its alarm and gives an upgrade.
@@ -12,7 +12,7 @@ DO-T wakes on The Dock of an AHAD station that is about to self-destruct (650 tu
 - **Sector looks:** `BIOMES` → `DLOOK` palettes.
 - **Words:** `THEME.text`, `THEME.help`; verses in `DVERSES` (KJV).
 - **Sounds:** the DO-T RUSH setup. Files in `assets/sfx/` are packed into the sketch (`EMBED_ASSETS`) by `tools/build.py`; `SETTINGS.audio.files` maps game events to file names; anything without a file uses the synthesized `THEME.sfx` sound. DO-T RUSH's sound is fully applied: its only sound file, `victory.m4a` (Peter's GREAT JOB! sound; plays on a boss kill and when all 8 are safe), and its beeps (`RUSH_BEEPS`, copied exactly from DO-T RUSH `src/audio.js`) for zap, kill, thrust (jump), step (turn), hurt, Beamer shot, pickups (byte) and button taps (ui). Events DO-T RUSH has no sound for (fist, shield bump, upgrade, vent fall, warp, Crab roar, acid, alarm siren...) keep this game's synthesized sounds.
-- **Music:** `musicTick()` plays `assets/music/<name>.mp3` (or `<name>.mp3` uploaded to the p5 editor): title / play / alarm / boss. None are in yet; missing tracks stay quiet.
+- **Music:** the AHAD tracks from Peter's Google Drive (`AHAD DOT 21 / AHAD Workshop / AHAD-Audio`), in `assets/music/`. `musicTick()` picks one per moment from `SETTINGS.audio.music`: title = `AHAD.mp3` (MP3 of the original `source/AHAD.m4a`), sector = JFobbsTunes 1_1, alarm + Crab fight = 1_2, ducts = 1_4. The choice was made from loudness/energy measurements, not by ear. Missing tracks stay quiet.
 
 ## Key systems
 - **Moves:** `playerTap()` → step / thrust (`canLeapTo`, 50 energy) / fist throw (`throwTarget`) / shield bump (`doBash`, 3-turn cooldown, shove into vents or coolant kills).
@@ -38,7 +38,7 @@ DOT-UI (AHAD Prototype 11 HUD) on a tron grid; DO-T is the AHAD `DotRig`; Biter,
 5. **Is the red X on green hexes big enough** for children to notice?
 
 ## Suggested next steps
-0. **Add the AHAD music:** neither this game nor DO-T RUSH has any music files yet. Copy the AHAD tracks into `assets/music/` (title.mp3, play.mp3, alarm.mp3, boss.mp3). Real recorded sound effects can replace the beeps later: drop them in `assets/sfx/` with the DO-T RUSH names, then `python3 tools/build.py && npm test`.
+0. **Listen to the music choices** and swap any in `SETTINGS.audio.music`. Two AHAD tracks are still in Drive only: `AHAD-JFobbsTunes1_3_01.mp3` (6.6 MB) and `1_5_01.mp3` (8.7 MB) were too big for the Drive connector; download them into `assets/music/` (one may suit the boss better).
 1. Child playtest on a real phone; tune `SETTINGS.timer.turns` from the log.
 2. AHAD art for Pouncer and Brute.
 3. Optional WAIT action (DO-T has no way to pass a turn; a boxed-in DO-T with the shield cooling and no energy or fist can't act. Never seen in 60+ test runs, but possible).
@@ -46,7 +46,7 @@ DOT-UI (AHAD Prototype 11 HUD) on a tron grid; DO-T is the AHAD `DotRig`; Biter,
 5. `SETTINGS.debug.showButton = false` before sharing.
 
 ## Known rough edges
-- No music yet (AHAD tracks needed). Sound effects are DO-T RUSH's beeps + victory.m4a, the same as DO-T RUSH itself.
+- Music mapping chosen by measurement, not by ear; boss and alarm share one 21-second track. Sound effects are DO-T RUSH's beeps + victory.m4a, the same as DO-T RUSH itself.
 - Fonts and sound never verified by eye/ear (headless tests run offline, fallback fonts).
 - The random bot never wins (it isn't smart), so its turn numbers say nothing about difficulty.
 - `dot_hex_page.html` loads p5 and Exo 2 from the internet; offline it won't run (the test serves p5 from node_modules).
