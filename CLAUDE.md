@@ -1,6 +1,6 @@
 # DO-T: Lost and Found
 
-A hex tactics game (Hoplite rules) aboard the space station from **All Humans Are Dead (AHAD)**. DO-T the robot rescues 8 babies before the station self-destructs. One file of plain **p5.js 2.3.4** (global mode) that pastes straight into the p5.js web editor. Owner: **Peter Venoit, Jr.** Version **4.7.1** (2026-11-12).
+A hex tactics game (Hoplite rules) aboard the space station from **All Humans Are Dead (AHAD)**. DO-T the robot rescues 8 babies before the station self-destructs. One file of plain **p5.js 2.3.4** (global mode) that pastes straight into the p5.js web editor. Owner: **Peter Venoit, Jr.** Version **4.7.2** (2026-11-12).
 
 Live page (private, Peter's account): https://claude.ai/artifact/Si1ZmXPJCgSx5KqHKbUVPR
 
@@ -38,7 +38,7 @@ Publishing to the artifact: send `dot_hex_publish.html` plus `assets/music/AHAD_
 ## File map
 | File | What it is |
 |---|---|
-| `sketch_dot_hex.js` | The whole game (v4.7). Sections in order: SETTINGS (+ DEBUG_SCENARIOS, FOES, BLESSINGS, BIOMES, WORLD) → DotRig (AHAD rig, unchanged) → THEME (DO-T look, text, sounds) → DOT-UI kit → AHAD art (Biter, Beamer, Rocket Fist, Crab) → hex engine (maths, world gen, player turn, zap preview, enemy turn, alarms, puzzles, save/log, input, drawing, screens). |
+| `sketch_dot_hex.js` | The whole game (v4.7.2). Sections in order: SETTINGS (+ DEBUG_SCENARIOS, FOES, BLESSINGS, BIOMES, WORLD) → DotRig (AHAD rig, unchanged) → THEME (DO-T look, text, sounds) → DOT-UI kit → AHAD art (Biter, Beamer, Rocket Fist, Crab) → hex engine (maths, world gen, player turn, zap preview, enemy turn, alarms, puzzles, save/log, input, drawing, screens). |
 | `dot_hex_page.html` | Standalone page: open it to play. Generated. |
 | `dot_hex_publish.html` | Page body for the claude.ai artifact. Generated. |
 | `assets/sfx/` | Sound effects (DO-T RUSH names), packed into the sketch by the build. Has `victory.m4a`; README lists the other names. |
@@ -56,6 +56,6 @@ Publishing to the artifact: send `dot_hex_publish.html` plus `assets/music/AHAD_
 - **Playtest log**: every real finished run is stored in localStorage `dot_hex_log` (last 50); the title shows a summary line. Use it to tune `SETTINGS.timer.turns`.
 - **Phone sound (v4.7.1):** never rely on `pointerdown` to start audio: on touch screens only touchend / pointerup / click count as a user gesture. `sndWatch()` unlocks on those page-wide; `sndUnlock()` plays a silent buffer and a looping silent `<audio>` (iPhone silent-switch workaround); the pause menu shows `sndStatus()` (AUDIO state // SONGS loaded // TAPS // IOS FIX ON). Chromium can't reproduce iOS audio rules: confirm on a real iPhone.
 - **Sound:** `SETTINGS.audio` (volumes, `files` = which DO-T RUSH sound plays for each event). File first, synthesized `THEME.sfx` beep as fallback. Pause menu has SOUND and MUSIC toggles (saved).
-- **Song (v4.6-4.7):** `SONG` settings block: `songs` (file + root key each), `hold` / `settle` / `urgent` / `remember` (cool-down: `musicSettle()`), `vary` (A/B alternation), `loops` ([A, B] per section: start/end seconds, whole bars, `song: 2` for B), `mix` (gain + muffle per section), `speedUp` (Dock Mash). `makeSongPlayer()` plays loop passes, switches on the next bar, remembers each section's bar (`S.mem`); `musicTick()` locks the mood layers to each pass. Web Audio is needed for bar-locked loops; `navigator.audioSession.type = 'playback'` keeps it audible with the iPhone silent switch on (Safari 17+).
+- **Song (v4.6-4.7):** `SONG` settings block: `songs` (file + root key each), `hold` / `settle` / `urgent` / `remember` (cool-down: `musicSettle()`), `vary` (A/B alternation), `loops` ([A, B] per section: start/end seconds, whole bars, `song: 2` for B), `mix` (gain + muffle per section), `speedUp` (Dock Mash), `composed` (sections played by the composed engine instead: the title = Exploring + tension, Peter's pick). `makeSongPlayer()` plays loop passes, switches on the next bar, remembers each section's bar (`S.mem`); `musicTick()` locks the mood layers to each pass. Web Audio is needed for bar-locked loops; `navigator.audioSession.type = 'playback'` keeps it audible with the iPhone silent switch on (Safari 17+).
 - **Composed music (fallback when the song is missing or `SONG.on = false`):** `MUSIC` settings block (riff, key, bpm and level per section, mood layers, reverb). Engine `makeMusic()`; `musicSection()` picks the section, `moodsNow()` + `musicMix()` set the layer volumes, which ease over `MUSIC.ease` seconds. Every instrument plays into a named layer (`MUSIC_LAYERS`); add an instrument by giving it a layer. Keep all loops braced (p5 editor).
 - Keyboard: W E D X Z A move, 1 thrust, 2 fist, M map, Esc pause.

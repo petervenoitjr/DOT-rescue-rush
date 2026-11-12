@@ -150,6 +150,13 @@ const server = http.createServer((q, r) => {
     const at = async (label, setup) => {
       setup();
       if (song) {
+        const cp = SONG.composed && SONG.composed[label];
+        if (cp) {   // a composed section (the title): the song rests, the composed engine plays it with its moods held on
+          for (let k = 0; k < 30 && SND.band.sec !== cp.as; k++) { musicTick(); await wait(100); }
+          const n0 = SND.band.notes; for (let k = 0; k < 20; k++) { musicTick(); await wait(100); }
+          seen[label] = { sec: musicSettle(musicSection(), SND.ctx.currentTime, SND.settle), composed: SND.band.sec, playing: SND.band.notes - n0 > 0 && !SND.song.pass && !SND.band.moodOnly && SND.band.lv.tension === 1, barsIn: 0 };
+          return;
+        }
         for (let k = 0; k < 60 && !(SND.song && SND.song.sec === label && SND.song.pass.when <= SND.ctx.currentTime); k++) { musicTick(); await wait(100); }
         for (let k = 0; k < 4; k++) { musicTick(); await wait(100); }
         const P = SND.song.pass, sw = SND.song.lastSwitch || {};

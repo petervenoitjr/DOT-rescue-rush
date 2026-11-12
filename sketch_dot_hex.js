@@ -8,6 +8,7 @@
 //  v4.6 (2026-11-12): SONG mode: Peter's Suno song (AHAD every mood) cut into bar-locked loops, one per section; mood layers ride on top; composed music is the fallback.
 //  v4.7 (2026-11-12): music cool-down (hold / settle / urgent), sections resume where they left off, alt song B for variety (loops alternate A/B).
 //  v4.7.1 (2026-11-12): phone sound fix: unlock on the END of a tap (touchend/pointerup/click), silent <audio> keeps iPhone Web Audio on with the silent switch, resume after interruptions; AUDIO status line in the pause menu.
+//  v4.7.2 (2026-11-12): title screen plays the composed Exploring music with the enemy-creeping-close tension layer (SONG.composed), Peter's pick.
 //  Paste this whole file into the p5.js web editor (p5 2.x) as sketch.js.
 // =====================================================================
 
@@ -122,6 +123,8 @@ const SONG = {
   urgent: ['boss', 'drop', 'ending', 'outro'],   // big moments: these cut in on the next bar, no waiting
   remember: 90,                  // come back to a section within 90 seconds and it carries on where it left off, instead of starting over
   vary: 2,                       // after going round a loop this many times, play the other song's version of the section (0 = never switch)
+  // sections played by the COMPOSED music instead of a song: as = which composed section, moods = mood layers held on
+  composed: { intro: { as: 'explore', moods: { tension: 1 } } },   // title screen = Exploring with the enemy creeping close (Peter's pick)
   loops: {                       // [A = song 1, B = song 2]
     intro:   [{ start: 2.902, end: 7.245, bars: 2 },   // A: sparse opening
               { song: 2, start: 7.802, end: 14.373, bars: 4 }],  // B: soft opening,
@@ -1930,6 +1933,14 @@ function makeSongPlayer(c, out) {
     if (m && now - m.t <= SONG.remember) { const L = list.find((x) => x.v === m.v); if (L && !L.once) { return { L, from: m.bar % Math.max(1, L.bars), round: m.round }; } }
     const k = (S.nextVar[sec] || 0) % list.length; S.nextVar[sec] = k + 1; return { L: list[k], from: 0, round: 0 };
   }
+  // fade the song out (a composed section takes over); the spot is remembered like any other switch
+  S.stop = (nowIn) => {
+    const now = nowIn === undefined ? c.currentTime : nowIn, P = S.pass; if (!P) { return; }
+    if (!P.once && P.when <= now) { S.mem[P.sec] = { v: P.v, bar: (P.from + Math.floor((now - P.when) / P.bar)) % P.bars, round: P.round, t: now }; }
+    P.g.gain.cancelScheduledValues(now); P.g.gain.setValueAtTime(P.when <= now ? 1 : 0, now); P.g.gain.linearRampToValueAtTime(0, now + 1.5); P.src.stop(now + 1.6);
+    if (S.prev && S.prev !== P) { S.prev.src.stop(now + 0.05); }
+    S.pass = null; S.prev = null; S.sec = null;
+  };
   // keep the music going in section 'sec' until 'until'. Returns the pass it just started (or null) so the mood layers can sync to it.
   S.run = (sec, until, rate, nowIn) => {   // nowIn: only for offline previews (their clock doesn't move)
     const now = nowIn === undefined ? c.currentTime : nowIn, P = S.pass;
@@ -1984,6 +1995,12 @@ function musicTick() {
   B.speed = timerOn() && G.room ? Math.max(0, Math.min(1, 1 - turnsLeft() / (SETTINGS.timer.turns * SETTINGS.timer.alarmAllAt))) : 0;
   if (SONG.on && SND.songState === 'ready') {
     if (!SND.song) { SND.song = makeSongPlayer(SND.ctx, SND.bandOut); }
+    const cp = SONG.composed && SONG.composed[sec];
+    if (cp) {   // this section is played by the composed music (with its mood layers held on), the song rests
+      SND.song.stop(); const cm = Object.assign({ tension: 0, heart: 0, hope: 0, clock: 0, calm: 0 }, cp.moods || {});
+      B.mood = cm; B.mix(musicMix(cm), now); B.open = 1 + cm.calm * 0.8;
+      B.moodOnly = false; B.root = 0; B.tune = 1; B.bpmOverride = 0; B.run(cp.as, now + 0.15); return;
+    }
     const rate = sec === 'dock' ? 1 + (SONG.speedUp - 1) * B.speed : 1, pass = SND.song.run(sec, now + 0.2, rate);
     B.moodOnly = true; B.tune = rate;
     if (pass) { B.root = pass.root; B.bpmOverride = 60 / pass.beat; B.next = pass.when; B.step = 0; B.bar = 0; B.sec = sec; }   // mood layers lock to the song's bar and key
