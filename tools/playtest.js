@@ -121,11 +121,12 @@ const SHOTS = process.argv.includes('--shots') ? path.join(ROOT, 'playtest-shots
     const packed = Object.keys(typeof EMBED_ASSETS !== 'undefined' ? EMBED_ASSETS : {}).map((k) => k.replace(/^assets\/sfx\/|\.\w+$/g, ''));
     const decoded = packed.filter((n) => !!SND.buffers[n]);
     let played = 0; const real = playFile; playFile = (n, v) => { const ok = real(n, v); if (ok) { played++; } return ok; };
-    sfx('victory'); sfx('zap'); playFile = real;
+    let beeps = 0; const rb = rushBeep; rushBeep = (n) => { const ok = rb(n); if (ok) { beeps++; } return ok; };
+    sfx('victory'); sfx('zap'); sfx('kill'); sfx('hurt'); playFile = real; rushBeep = rb;
     G.scene = 'title'; musicTick(); await new Promise((r) => setTimeout(r, 600));
-    return { ctx: SND.ctx && SND.ctx.state, packed, decoded, victoryFromFile: played >= 1, musicTrack: SND.track };
+    return { ctx: SND.ctx && SND.ctx.state, packed, decoded, victoryFromFile: played >= 1, rushBeeps: beeps, musicTrack: SND.track };
   });
-  check('sound files decode and play (' + audio.decoded.join(', ') + ')', audio.decoded.length === audio.packed.length && audio.victoryFromFile, audio);
+  check('victory file + DO-T RUSH beeps play (' + audio.decoded.join(', ') + ')', audio.decoded.length === audio.packed.length && audio.victoryFromFile && audio.rushBeeps === 3, audio);
 
   for (const o of ['map', 'pause', 'help', 'launch', 'win', 'lose']) { await page.evaluate((ov) => { G.scene = 'play'; G.overlay = ov; }, o); await page.waitForTimeout(80); await shot('03_' + o); }
   check('no page errors while drawing', errors.length === 0, errors.slice(0, 3));

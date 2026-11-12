@@ -11,7 +11,7 @@ DO-T wakes on The Dock of an AHAD station that is about to self-destruct (650 tu
 - **Upgrades:** `BLESSINGS` (8; some cost a hull plate).
 - **Sector looks:** `BIOMES` → `DLOOK` palettes.
 - **Words:** `THEME.text`, `THEME.help`; verses in `DVERSES` (KJV).
-- **Sounds:** the DO-T RUSH setup. Files in `assets/sfx/` are packed into the sketch (`EMBED_ASSETS`) by `tools/build.py`; `SETTINGS.audio.files` maps game events to file names; anything without a file uses the synthesized `THEME.sfx` sound. Only `victory.m4a` (Peter's GREAT JOB! sound) is in so far; it plays on a boss kill and when all 8 are safe.
+- **Sounds:** the DO-T RUSH setup. Files in `assets/sfx/` are packed into the sketch (`EMBED_ASSETS`) by `tools/build.py`; `SETTINGS.audio.files` maps game events to file names; anything without a file uses the synthesized `THEME.sfx` sound. DO-T RUSH's sound is fully applied: its only sound file, `victory.m4a` (Peter's GREAT JOB! sound; plays on a boss kill and when all 8 are safe), and its beeps (`RUSH_BEEPS`, copied exactly from DO-T RUSH `src/audio.js`) for zap, kill, thrust (jump), step (turn), hurt, Beamer shot, pickups (byte) and button taps (ui). Events DO-T RUSH has no sound for (fist, shield bump, upgrade, vent fall, warp, Crab roar, acid, alarm siren...) keep this game's synthesized sounds.
 - **Music:** `musicTick()` plays `assets/music/<name>.mp3` (or `<name>.mp3` uploaded to the p5 editor): title / play / alarm / boss. None are in yet; missing tracks stay quiet.
 
 ## Key systems
@@ -38,7 +38,7 @@ DOT-UI (AHAD Prototype 11 HUD) on a tron grid; DO-T is the AHAD `DotRig`; Biter,
 5. **Is the red X on green hexes big enough** for children to notice?
 
 ## Suggested next steps
-0. **Add the real audio:** copy the AHAD music into `assets/music/` (title.mp3, play.mp3, alarm.mp3, boss.mp3) and the DO-T RUSH sound effects (zap, kill, jump, fist, hurt, shoot, byte, ui, block, tool, turn) into `assets/sfx/`, then `python3 tools/build.py && npm test`.
+0. **Add the AHAD music:** neither this game nor DO-T RUSH has any music files yet. Copy the AHAD tracks into `assets/music/` (title.mp3, play.mp3, alarm.mp3, boss.mp3). Real recorded sound effects can replace the beeps later: drop them in `assets/sfx/` with the DO-T RUSH names, then `python3 tools/build.py && npm test`.
 1. Child playtest on a real phone; tune `SETTINGS.timer.turns` from the log.
 2. AHAD art for Pouncer and Brute.
 3. Optional WAIT action (DO-T has no way to pass a turn; a boxed-in DO-T with the shield cooling and no energy or fist can't act. Never seen in 60+ test runs, but possible).
@@ -46,7 +46,7 @@ DOT-UI (AHAD Prototype 11 HUD) on a tron grid; DO-T is the AHAD `DotRig`; Biter,
 5. `SETTINGS.debug.showButton = false` before sharing.
 
 ## Known rough edges
-- Only one real sound file so far (victory.m4a); the rest are synthesized stand-ins until the DO-T RUSH and AHAD files are added.
+- No music yet (AHAD tracks needed). Sound effects are DO-T RUSH's beeps + victory.m4a, the same as DO-T RUSH itself.
 - Fonts and sound never verified by eye/ear (headless tests run offline, fallback fonts).
 - The random bot never wins (it isn't smart), so its turn numbers say nothing about difficulty.
 - `dot_hex_page.html` loads p5 and Exo 2 from the internet; offline it won't run (the test serves p5 from node_modules).

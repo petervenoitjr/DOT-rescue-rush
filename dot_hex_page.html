@@ -9,7 +9,7 @@
 //  DO-T: LOST AND FOUND  -  a hex tactics game (Hoplite rules) aboard the station from All Humans Are Dead
 //  Made by Peter Venoit, Jr. - 2026
 //  v4 (2026-11-10): DOT-UI look, AHAD Biter / Beamer / Rocket Fist / Crab art from DO-T RUSH, 6 bug fixes, playtest log.
-//  v4.3 (2026-11-12): DO-T RUSH sound setup (assets/sfx packed by tools/build.py, victory.m4a), AHAD music slots, SOUND / MUSIC toggles.
+//  v4.3 (2026-11-12): DO-T RUSH sound (its beeps + victory.m4a; assets/sfx packed by tools/build.py), AHAD music slots, SOUND / MUSIC toggles.
 //  Paste this whole file into the p5.js web editor (p5 2.x) as sketch.js.
 // =====================================================================
 
@@ -33,7 +33,8 @@ const SETTINGS = {
   },
   feel: { turnLock: 0.16, travelStep: 0.1 },   // travelStep = seconds per hex when walking on its own in a cleared place   // turnLock = seconds after each turn before the next tap counts
   // SOUND: the DO-T RUSH setup. Sound files in assets/sfx/ are built INTO this sketch by tools/build.py (EMBED_ASSETS at the bottom).
-  //   'files' says which DO-T RUSH sound plays for each game event; a missing file falls back to the synthesized beep in THEME.sfx.
+  //   'files' says which DO-T RUSH sound plays for each game event: its sound file if there is one, else DO-T RUSH's own beep (RUSH_BEEPS),
+  //   else this game's synthesized sound in THEME.sfx (for events DO-T RUSH has no sound for).
   // MUSIC: .mp3 files in assets/music/ (too big to build in). In the p5 editor, upload them (Sketch > Upload file) with these names.
   audio: {
     volume: 0.7, sfxVolume: 0.6, musicVolume: 0.45,
@@ -1577,6 +1578,19 @@ function sndLoadFiles() {
     fetch(em[path]).then((r) => r.arrayBuffer()).then((b) => SND.ctx.decodeAudioData(b)).then((buf) => { SND.buffers[m[1]] = buf; }).catch(() => { /* bad file: keep the beep */ });
   }
 }
+// DO-T RUSH's own sound effects (src/audio.js BEEPS, copied exactly): a triangle sweep f0 -> f1 over dur seconds at volume vol.
+// DO-T RUSH plays these when it has no sound file, and it has only victory.m4a, so these ARE its sounds.
+const RUSH_BEEPS = { zap: [900, 1800, 0.06, 0.12], kill: [520, 120, 0.16, 0.3], jump: [300, 700, 0.12, 0.15], dash: [500, 1500, 0.12, 0.12],
+                     turn: [400, 300, 0.05, 0.1], hurt: [220, 60, 0.3, 0.35], shoot: [180, 120, 0.1, 0.12], byte: [1200, 1600, 0.05, 0.08],
+                     ui: [660, 990, 0.06, 0.15] };
+function rushBeep(name) {
+  const b = RUSH_BEEPS[name]; if (!b) { return false; }
+  const c = SND.ctx, o = c.createOscillator(), g = c.createGain(), bus = c.createGain(), t = c.currentTime, [f0, f1, dur, vol] = b;
+  bus.gain.value = SETTINGS.audio.sfxVolume / SETTINGS.audio.volume;   // DO-T RUSH's sfx bus level
+  o.type = 'triangle'; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(30, f1), t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g); g.connect(bus); bus.connect(SND.master); o.start(t); o.stop(t + dur + 0.02); return true;
+}
 function playFile(name, vol) {
   const buf = SND.buffers[name]; if (!buf) { return false; }
   const s = SND.ctx.createBufferSource(), g = SND.ctx.createGain(); s.buffer = buf; g.gain.value = (vol || 1) * SETTINGS.audio.sfxVolume / SETTINGS.audio.volume; s.connect(g); g.connect(SND.master); s.start(); return true;
@@ -1611,7 +1625,7 @@ function sndNoise(t0, dur, vol, f0, f1, q) {
   const s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain(); s.buffer = buf; f.type = 'bandpass'; f.Q.value = q || 1; f.frequency.setValueAtTime(f0, t0); if (f1) { f.frequency.exponentialRampToValueAtTime(f1, t0 + dur); }
   g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur); s.connect(f); f.connect(g); g.connect(SND.master); s.start(t0);
 }
-function sfx(name) { if (!SND.ctx || !SND.on || SND.ctx.state !== 'running') { return; } const file = SETTINGS.audio.files[name]; if (file && playFile(file)) { return; } const fn = THEME.sfx[name]; if (!fn) { return; } try { fn(SND.ctx.currentTime + 0.01); } catch (_) { /* ignore */ } }
+function sfx(name) { if (!SND.ctx || !SND.on || SND.ctx.state !== 'running') { return; } const file = SETTINGS.audio.files[name]; if (file && (playFile(file) || rushBeep(file))) { return; } const fn = THEME.sfx[name]; if (!fn) { return; } try { fn(SND.ctx.currentTime + 0.01); } catch (_) { /* ignore */ } }
 
 // =====================================================================
 //  SAVE: best result on this device

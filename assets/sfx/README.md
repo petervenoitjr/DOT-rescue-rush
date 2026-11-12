@@ -20,4 +20,4 @@ Which file plays for which game event is `SETTINGS.audio.files` in the sketch:
 | `turn` | a step |
 | `victory` | boss down / all 8 safe (included) |
 
-Any event without a file uses the synthesized sound.
+Without a file, an event plays **DO-T RUSH's own beep** for that name (`RUSH_BEEPS` in the sketch, copied exactly from DO-T RUSH `src/audio.js`: zap, kill, jump, turn, hurt, shoot, byte, ui). DO-T RUSH itself has only `victory.m4a` as a file, so these beeps ARE its sound effects. `fist`, `block` and `tool` have no DO-T RUSH beep, so they use this game's own synthesized sound.
