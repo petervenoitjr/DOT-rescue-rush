@@ -1,6 +1,6 @@
 # DO-T: Lost and Found — handoff
 
-**Status (v4.2, 2026-11-10):** fully playable start to finish; 9/9 headless checks pass. Not yet played by a child or on a real phone. Pouncer and Brute art are placeholders.
+**Status (v4.3, 2026-11-12):** fully playable start to finish; 10/10 headless checks pass. Not yet played by a child or on a real phone. Pouncer and Brute art are placeholders.
 
 ## The game
 DO-T wakes on The Dock of an AHAD station that is about to self-destruct (650 turns). Eight babies in glowing pods have drifted across a 4x4 grid of sectors plus three ducts. Every tap is one turn, then every enemy acts (Hoplite rules): moving IS attacking. DO-T carries up to 2 babies home; bringing all 8 back wins, or he can launch the escape pod early with fewer. Repairing a sector's circuit (a puzzle) turns its lights on, stops its alarm and gives an upgrade.
@@ -11,7 +11,8 @@ DO-T wakes on The Dock of an AHAD station that is about to self-destruct (650 tu
 - **Upgrades:** `BLESSINGS` (8; some cost a hull plate).
 - **Sector looks:** `BIOMES` → `DLOOK` palettes.
 - **Words:** `THEME.text`, `THEME.help`; verses in `DVERSES` (KJV).
-- **Sounds:** synthesized WebAudio, `THEME.sfx` (no files).
+- **Sounds:** the DO-T RUSH setup. Files in `assets/sfx/` are packed into the sketch (`EMBED_ASSETS`) by `tools/build.py`; `SETTINGS.audio.files` maps game events to file names; anything without a file uses the synthesized `THEME.sfx` sound. Only `victory.m4a` (Peter's GREAT JOB! sound) is in so far; it plays on a boss kill and when all 8 are safe.
+- **Music:** `musicTick()` plays `assets/music/<name>.mp3` (or `<name>.mp3` uploaded to the p5 editor): title / play / alarm / boss. None are in yet; missing tracks stay quiet.
 
 ## Key systems
 - **Moves:** `playerTap()` → step / thrust (`canLeapTo`, 50 energy) / fist throw (`throwTarget`) / shield bump (`doBash`, 3-turn cooldown, shove into vents or coolant kills).
@@ -37,6 +38,7 @@ DOT-UI (AHAD Prototype 11 HUD) on a tron grid; DO-T is the AHAD `DotRig`; Biter,
 5. **Is the red X on green hexes big enough** for children to notice?
 
 ## Suggested next steps
+0. **Add the real audio:** copy the AHAD music into `assets/music/` (title.mp3, play.mp3, alarm.mp3, boss.mp3) and the DO-T RUSH sound effects (zap, kill, jump, fist, hurt, shoot, byte, ui, block, tool, turn) into `assets/sfx/`, then `python3 tools/build.py && npm test`.
 1. Child playtest on a real phone; tune `SETTINGS.timer.turns` from the log.
 2. AHAD art for Pouncer and Brute.
 3. Optional WAIT action (DO-T has no way to pass a turn; a boxed-in DO-T with the shield cooling and no energy or fist can't act. Never seen in 60+ test runs, but possible).
@@ -44,6 +46,7 @@ DOT-UI (AHAD Prototype 11 HUD) on a tron grid; DO-T is the AHAD `DotRig`; Biter,
 5. `SETTINGS.debug.showButton = false` before sharing.
 
 ## Known rough edges
+- Only one real sound file so far (victory.m4a); the rest are synthesized stand-ins until the DO-T RUSH and AHAD files are added.
 - Fonts and sound never verified by eye/ear (headless tests run offline, fallback fonts).
 - The random bot never wins (it isn't smart), so its turn numbers say nothing about difficulty.
 - `dot_hex_page.html` loads p5 and Exo 2 from the internet; offline it won't run (the test serves p5 from node_modules).

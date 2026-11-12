@@ -22,7 +22,7 @@ const P5 = path.join(ROOT, 'node_modules', 'p5', 'lib', 'p5.min.js');   // p5's 
 const SHOTS = process.argv.includes('--shots') ? path.join(ROOT, 'playtest-shots') : null;
 
 (async () => {
-  const browser = await chromium.launch(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {});
+  const browser = await chromium.launch(Object.assign({ args: ['--autoplay-policy=no-user-gesture-required'] }, process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {}));
   const page = await browser.newPage({ viewport: { width: 540, height: 960 } });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -114,6 +114,18 @@ const SHOTS = process.argv.includes('--shots') ? path.join(ROOT, 'playtest-shots
     return res;
   });
   check('bot plays ' + bot.turns + ' turns without errors', bot.errors.length === 0, bot);
+
+  // sound: packed files decode, mapped events play the file, missing music stays quiet
+  const audio = await page.evaluate(async () => {
+    sndInit(); await new Promise((r) => setTimeout(r, 1500));
+    const packed = Object.keys(typeof EMBED_ASSETS !== 'undefined' ? EMBED_ASSETS : {}).map((k) => k.replace(/^assets\/sfx\/|\.\w+$/g, ''));
+    const decoded = packed.filter((n) => !!SND.buffers[n]);
+    let played = 0; const real = playFile; playFile = (n, v) => { const ok = real(n, v); if (ok) { played++; } return ok; };
+    sfx('victory'); sfx('zap'); playFile = real;
+    G.scene = 'title'; musicTick(); await new Promise((r) => setTimeout(r, 600));
+    return { ctx: SND.ctx && SND.ctx.state, packed, decoded, victoryFromFile: played >= 1, musicTrack: SND.track };
+  });
+  check('sound files decode and play (' + audio.decoded.join(', ') + ')', audio.decoded.length === audio.packed.length && audio.victoryFromFile, audio);
 
   for (const o of ['map', 'pause', 'help', 'launch', 'win', 'lose']) { await page.evaluate((ov) => { G.scene = 'play'; G.overlay = ov; }, o); await page.waitForTimeout(80); await shot('03_' + o); }
   check('no page errors while drawing', errors.length === 0, errors.slice(0, 3));
