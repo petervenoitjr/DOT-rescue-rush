@@ -145,7 +145,8 @@ const server = http.createServer((q, r) => {
   const music = await page.evaluate(async () => {
     const wait = (ms) => new Promise((r) => setTimeout(r, ms)), seen = {}, keep = SETTINGS.timer.turns;
     for (let k = 0; k < 60 && SND.songState === 'loading'; k++) { musicTick(); await wait(100); }
-    const song = SONG.on && SND.songState === 'ready';
+    const song = SONG.on && SND.songState === 'ready', coolKeep = [SONG.hold, SONG.settle]; SONG.hold = 0; SONG.settle = 0;   // sweep without the cool-down
+    const loaded = (SND.songBufs || []).map((b) => !!b);
     const at = async (label, setup) => {
       setup();
       if (song) {
@@ -177,11 +178,28 @@ const server = http.createServer((q, r) => {
     for (let k = 0; k < 30 && song && SND.song.sec !== 'explore'; k++) { musicTick(); await wait(100); }
     const n0 = SND.band.notes; for (let k = 0; k < 25; k++) { musicTick(); await wait(100); }
     const sec = musicSection(), mood = Object.assign({}, SND.band.mood), lv = Object.assign({}, SND.band.lv), moodNotes = SND.band.notes - n0, moodOnly = !!SND.band.moodOnly;
-    SETTINGS.timer.turns = keep; G.scene = 'title'; G.overlay = null; musicTick();
+    SETTINGS.timer.turns = keep; G.scene = 'title'; G.overlay = null; musicTick(); SONG.hold = coolKeep[0]; SONG.settle = coolKeep[1];
+    // COOL-DOWN on a simulated clock: flicker explore/enemy every 0.5 s -> no change; steady enemy -> waits for hold; boss -> at once
+    const st = {}, cool = {}; musicSettle('explore', 0, st); let flips = 0, prev = 'explore';
+    for (let t = 0.5; t < 6; t += 0.5) { const c = musicSettle(t % 1 ? 'enemy' : 'explore', t, st); if (c !== prev) { flips++; prev = c; } }
+    cool.flickerChanges = flips; let tEnemy = null;
+    for (let t = 6; t < 30; t += 0.1) { if (musicSettle('enemy', t, st) === 'enemy') { tEnemy = Math.round(t * 10) / 10; break; } }
+    cool.enemyAt = tEnemy; cool.bossNow = musicSettle('boss', tEnemy + 0.1, st) === 'boss';
+    // RESUME + VARIETY with a player on a silent offline clock
+    let rv = {};
+    if (song) {
+      const oc = new OfflineAudioContext(2, 44100, 44100), pl = makeSongPlayer(oc, oc.destination); let t = 0;
+      const runTo = (sec, until) => { for (; t < until; t += 0.05) { pl.run(sec, t + 0.2, 1, t); } };
+      runTo('explore', 7); const exV = pl.pass.v; runTo('enemy', 12); runTo('explore', 13);
+      rv.resumeFromBar = pl.pass.from; rv.sameVersion = pl.pass.v === exV;
+      const keepVary = SONG.vary; SONG.vary = 1; const vs = new Set(); for (let k = 0; k < 6; k++) { const n = pl.passes; runTo('explore', t + 1); while (pl.passes === n && t < 400) { runTo('explore', t + 0.5); } vs.add(pl.pass.v); }
+      SONG.vary = keepVary; rv.versions = [...vs];
+      pl.run('outro', t + 0.2, 1, t); rv.done = true;
+    }
     const r = song ? await renderSongTour([['explore', 4], ['enemy', 4]]) : await renderMusic('explore', 6, { tension: 1 });
-    return { song, songState: SND.songState, seen, moodSec: sec, mood, lv, moodNotes, moodOnly, render: { peak: Math.round(r.peak * 100) / 100, notes: r.notes, bytes: r.b64.length } };
+    return { song, loaded, cool, rv, songState: SND.songState, seen, moodSec: sec, mood, lv, moodNotes, moodOnly, render: { peak: Math.round(r.peak * 100) / 100, notes: r.notes, bytes: r.b64.length } };
   });
-  if (!NOSONG) { check('song file loads (' + 'assets/music/' + ')', music.song, { state: music.songState }); }
+  if (!NOSONG) { check('both songs load (A + B)', music.song && music.loaded.length === 2 && music.loaded.every(Boolean), { state: music.songState, loaded: music.loaded }); }
   else { check('song missing -> composed music takes over', !music.song && music.songState === 'missing', { state: music.songState }); }
   const secOk = Object.entries(music.seen).every(([k, v]) => v.sec === k && (music.song ? v.playing : v.notes > 0));
   check((music.song ? 'song loop' : 'composed music') + ': all 12 sections reached and playing', secOk, music.seen);
@@ -190,6 +208,8 @@ const server = http.createServer((q, r) => {
     check('song switches land exactly on a bar line', off.length === 0, off);
   }
   check('mood layers ease in (tension, heartbeat, hope bells)' + (music.song ? ' over the song' : ''), music.mood.tension > 0 && music.lv.heart === 1 && music.lv.hope > 0.4 && music.lv.tension > 0 && music.moodNotes > 0 && music.moodOnly === music.song, { sec: music.moodSec, mood: music.mood, notes: music.moodNotes });
+  check('cool-down: flickering mood never switches, a steady one waits for hold, boss cuts in at once', music.cool.flickerChanges === 0 && music.cool.enemyAt >= 11.9 && music.cool.enemyAt <= 12.2 && music.cool.bossNow, music.cool);
+  if (music.song) { check('coming back carries on from the same bar and version; loops vary between songs', music.rv.resumeFromBar > 0 && music.rv.sameVersion && music.rv.versions.length === 2, music.rv); }
   check('music renders offline (previews)', music.render.peak > 0.05, music.render);
 
   const saveWav = (name, r) => {
@@ -200,12 +220,13 @@ const server = http.createServer((q, r) => {
     fs.writeFileSync(path.join(out, name + '.wav'), Buffer.concat([hdr, pcm])); console.log('  wrote music-preview/' + name + '.wav');
   };
   if (process.argv.includes('--music') && music.song) {   // the song as the game plays it: a scripted run through every section
-    const tour = [['intro', 12], ['comic', 9], ['chapter', 14], ['explore', 18], ['explore', 10, { tension: 0.5 }], ['explore', 6, { tension: 1 }], ['enemy', 14],
-      ['explore', 10, { calm: 1 }], ['stealth', 14], ['repair', 14], ['explore', 10, { hope: 1, heart: 1 }], ['dock', 10, { clock: 0.6 }], ['dock', 10, { clock: 1 }, 1.06],
-      ['stealth', 8], ['boss', 18], ['drop', 14], ['ending', 14], ['outro', 8]];
+    const tour = [['intro', 14], ['comic', 14], ['chapter', 16], ['explore', 20], ['explore', 8, { tension: 0.5 }], ['explore', 6, { tension: 1 }],
+      ['enemy', 1], ['explore', 1], ['enemy', 1], ['explore', 1], ['enemy', 16],   // flickering danger: the cool-down holds, then Enemy comes in
+      ['explore', 14, { calm: 1 }], ['stealth', 16], ['repair', 14], ['explore', 16, { hope: 1, heart: 1 }], ['dock', 12, { clock: 0.6 }], ['dock', 12, { clock: 1 }, 1.06],
+      ['stealth', 14], ['boss', 30], ['drop', 26], ['ending', 14], ['outro', 12]];
     saveWav('00_SONG_TOUR_as_the_game_plays_it', await page.evaluate((t) => renderSongTour(t), tour));
     for (const k of ['intro', 'comic', 'chapter', 'explore', 'stealth', 'enemy', 'repair', 'dock', 'boss', 'drop', 'ending', 'outro']) {
-      saveWav('song_' + k, await page.evaluate((x) => renderSongTour([[x, x === 'outro' ? 8 : 16]]), k));
+      saveWav('song_' + k, await page.evaluate((x) => { const keep = SONG.vary; SONG.vary = 1; return renderSongTour([[x, x === 'outro' ? 14 : 34]]).finally(() => { SONG.vary = keep; }); }, k));   // A then B
     }
   } else if (process.argv.includes('--music')) {   // composed music previews
     const list = [['01_intro', 'intro', 40], ['02_comic', 'comic', 32], ['03_chapter', 'chapter', 32], ['04_exploring', 'explore', 45], ['05_stealth', 'stealth', 36],

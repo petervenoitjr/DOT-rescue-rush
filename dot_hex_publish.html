@@ -12,6 +12,7 @@
 //  v4.4 (2026-11-12): AHAD music from the Drive AHAD-Audio folder (title, sector, alarm/boss, ducts).
 //  v4.5 (2026-11-12): our own soundtrack, composed live in code (MUSIC): one riff, 12 sections that follow the game, mood layers that ease in (tension, heartbeat, hope, clock, calm). Old music files scrapped.
 //  v4.6 (2026-11-12): SONG mode: Peter's Suno song (AHAD every mood) cut into bar-locked loops, one per section; mood layers ride on top; composed music is the fallback.
+//  v4.7 (2026-11-12): music cool-down (hold / settle / urgent), sections resume where they left off, alt song B for variety (loops alternate A/B).
 //  Paste this whole file into the p5.js web editor (p5 2.x) as sketch.js.
 // =====================================================================
 
@@ -107,31 +108,52 @@ const MUSIC = {
   }
 };
 
-// ---- SONG: play a real song (made in Suno) instead of the composed music. It is cut into LOOPS, one per section (start/end in
-//      seconds into the song, on bar lines, picked by tools/remap/plan.py for the smoothest seam). A section change waits for the
-//      next bar, so the beat never trips. The MOOD LAYERS (MUSIC.moods) still play on top, in the song's key and tempo.
-//      No song file, or on: false = the composed music plays instead.
-//      To REMAP: listen to the song, change a section's start/end (keep end - start a whole number of bars) or point it at another part.
+// ---- SONG: play real songs (made in Suno) instead of the composed music. Each is cut into LOOPS, one or more per section
+//      (start/end in seconds into that song, on bar lines, picked by tools/remap/plan.py for the smoothest seam).
+//      A change waits for the next bar, so the beat never trips. The MOOD LAYERS (MUSIC.moods) play on top, in the song's key.
+//      No song files, or on: false = the composed music plays instead.
+//      To REMAP: listen, then change a loop's start/end (keep end - start a whole number of bars) or point it at another part.
 const SONG = {
   on: true,
-  file: 'AHAD_every_mood.mp3',   // in assets/music/ next to the page; in the p5 editor upload it (Sketch > Upload file) with this name
-  volume: 0.9,                   // the song compared with MUSIC.volume
-  root: 43,                      // the song's key, so the mood layers fit: MIDI 43 = G (the song is in G minor, about 112 bpm)
-  loops: {
-    intro:   { start: 2.902, end: 7.245, bars: 2 },   // sparse opening
-    comic:   { start: 7.245, end: 15.743, bars: 4 },   // first groove, played hushed
-    chapter: { start: 18.321, end: 35.550, bars: 8 },   // second section
-    explore: { start: 35.550, end: 52.663, bars: 8 },   // the steadiest loop in the song
-    stealth: { start: 59.606, end: 68.127, bars: 4 },   // the dark stretch with no highs (0:56-1:13), muffled
-    enemy:   { start: 77.717, end: 94.621, bars: 8 },   // heavy sub after the breakdown (1:17)
-    repair:  { start: 96.223, end: 113.406, bars: 8 },   // the middle section
-    dock:    { start: 117.145, end: 125.666, bars: 4 },   // just after the dark gap at 1:57
-    boss:    { start: 126.200, end: 143.105, bars: 8 },   // the heaviest stretch (2:05-2:29)
-    drop:    { start: 146.704, end: 155.249, bars: 4 },   // the densest hits (2:27-2:44)
-    ending:  { start: 162.191, end: 166.487, bars: 2 },   // the last bright bars
-    outro:   { start: 168.089, once: true },   // the fade to the end, played once
+  volume: 0.9,                   // the songs compared with MUSIC.volume
+  // the songs, in assets/music/ next to the page (in the p5 editor upload them with these names). root = the key, for the mood layers.
+  songs: [
+    { file: 'AHAD_every_mood.mp3', root: 43 },    // song 1 (A): G minor, about 112 bpm
+    { file: 'AHAD_every_mood2.mp3', root: 44 }    // song 2 (B, the alt version): G# minor, about 144 bpm, faster and heavier
+  ],
+  // COOL-DOWN, so the music doesn't flip back and forth or keep restarting:
+  hold: 12,                      // seconds a section keeps playing before another one may take over
+  settle: 2,                     // seconds the game must stay in a new mood before the music follows (a quick pause or a passing enemy won't switch it)
+  urgent: ['boss', 'drop', 'ending', 'outro'],   // big moments: these cut in on the next bar, no waiting
+  remember: 90,                  // come back to a section within 90 seconds and it carries on where it left off, instead of starting over
+  vary: 2,                       // after going round a loop this many times, play the other song's version of the section (0 = never switch)
+  loops: {                       // [A = song 1, B = song 2]
+    intro:   [{ start: 2.902, end: 7.245, bars: 2 },   // A: sparse opening
+              { song: 2, start: 7.802, end: 14.373, bars: 4 }],  // B: soft opening,
+    comic:   [{ start: 7.245, end: 15.743, bars: 4 },   // A: first groove, hushed
+              { song: 2, start: 12.701, end: 19.365, bars: 4 }],  // B: soft opening, hushed,
+    chapter: [{ start: 18.321, end: 35.550, bars: 8 },   // A: second section
+              { song: 2, start: 20.201, end: 33.553, bars: 8 }],  // B: soft first part (0:20),
+    explore: [{ start: 35.550, end: 52.663, bars: 8 },   // A: steadiest loop
+              { song: 2, start: 70.124, end: 83.383, bars: 8 }],  // B: busy groove (1:10),
+    stealth: [{ start: 59.606, end: 68.127, bars: 4 },   // A: dark, no highs (0:56)
+              { song: 2, start: 177.424, end: 190.241, bars: 8 }],  // B: dark, big sub, no highs (2:57),
+    enemy:   [{ start: 77.717, end: 94.621, bars: 8 },   // A: heavy sub after the breakdown (1:17)
+              { song: 2, start: 51.037, end: 64.319, bars: 8 }],  // B: right after the breakdown (0:51),
+    repair:  [{ start: 96.223, end: 113.406, bars: 8 },   // A: middle section
+              { song: 2, start: 101.936, end: 105.210, bars: 2 }],  // B: the short major-key lift (1:42),
+    dock:    [{ start: 117.145, end: 125.666, bars: 4 },   // A: after the dark gap (1:57)
+              { song: 2, start: 142.222, end: 155.156, bars: 8 }],  // B: the burst at 2:22,
+    boss:    [{ start: 126.200, end: 143.105, bars: 8 },   // A: heaviest stretch (2:05)
+              { song: 2, start: 113.824, end: 126.827, bars: 8 }],  // B: heavy (1:54),
+    drop:    [{ start: 146.704, end: 155.249, bars: 4 },   // A: densest hits (2:27)
+              { song: 2, start: 155.968, end: 168.832, bars: 8 }],  // B: heaviest (2:36),
+    ending:  [{ start: 162.191, end: 166.487, bars: 2 },   // A: last bright bars
+              { song: 2, start: 32.299, end: 38.963, bars: 4 }],  // B: soft first part (0:32),
+    outro:   [{ start: 168.089, once: true },   // A: the fade, once
+              { song: 2, start: 200.667, once: true }],  // B: the fade, once
   },
-  // the song was mixed at one loudness all the way through; these bring back the quiet and loud moments of the brief.
+  // the songs were mixed at one loudness all the way through; these bring back the quiet and loud moments of the brief.
   // gain = how loud. lp = muffle it (lower = darker and further away; leave out for a clear sound).
   mix: {
     intro: { gain: 0.5, lp: 1800 }, comic: { gain: 0.35, lp: 700 }, chapter: { gain: 0.7 }, explore: { gain: 0.8 },
@@ -1874,63 +1896,102 @@ function musicMix(m) {   // moods -> target volume of every layer
   const calmDrums = 1 - m.calm * (1 - MUSIC.moods.calm.drums);
   return { drums: calmDrums, bass: 1 - m.calm * 0.3, pad: 1 + m.calm * 0.4, tension: m.tension, heart: m.heart, hope: m.hope, clock: m.clock };
 }
-// ---- SONG PLAYER: plays SONG.loops from the decoded song, one pass after another, and switches section on the next bar ----
-function makeSongPlayer(c, out, buf) {
-  const S = { buf, sec: null, pass: null, passes: 0, bus: c.createGain(), lp: c.createBiquadFilter() };
+// ---- COOL-DOWN: turns what the game wants into what the music plays (SONG.hold / settle / urgent). st = { cur, since, want, wantSince } ----
+function musicSettle(want, now, st) {
+  if (want !== st.want) { st.want = want; st.wantSince = now; }
+  if (st.cur === null || st.cur === undefined) { st.cur = want; st.since = now; return want; }
+  if (want === st.cur) { return st.cur; }
+  const urgent = SONG.urgent.includes(want), settled = now - st.wantSince >= SONG.settle, held = now - st.since >= SONG.hold;
+  if (urgent || (settled && held)) { st.cur = want; st.since = now; }
+  return st.cur;
+}
+// ---- SONG PLAYER: plays loop passes from the decoded songs, switches section on the next bar, remembers where each section was ----
+function songLoopsFor(sec) {   // a section's loops whose song is loaded, as [{ ...loop, v: index }]
+  const L = SONG.loops[sec]; if (!L) { return []; }
+  const list = Array.isArray(L) ? L : [L], out = [];
+  for (let v = 0; v < list.length; v++) { const lp = list[v]; if (SND.songBufs[(lp.song || 1) - 1]) { out.push(Object.assign({ v }, lp)); } }
+  return out;
+}
+function makeSongPlayer(c, out) {
+  const S = { sec: null, pass: null, passes: 0, mem: {}, nextVar: {}, bus: c.createGain(), lp: c.createBiquadFilter() };
   S.lp.type = 'lowpass'; S.lp.frequency.value = 20000; S.lp.connect(S.bus); S.bus.gain.value = 0; S.bus.connect(out);
   const level = (sec, at) => { const m = SONG.mix[sec] || {}; S.bus.gain.setTargetAtTime((m.gain === undefined ? 1 : m.gain) * MUSIC.volume * SONG.volume, at, 0.35); S.lp.frequency.setTargetAtTime(m.lp || 20000, at, 0.35); };
-  function play(sec, when, rate) {
-    const L = SONG.loops[sec], src = c.createBufferSource(), g = c.createGain(), raw = (L.once ? buf.duration - L.start : L.end - L.start), len = raw / rate;
+  // one pass of loop L (from bar 'from' to its end) starting at 'when'
+  function play(sec, L, when, rate, from) {
+    const buf = SND.songBufs[(L.song || 1) - 1], src = c.createBufferSource(), g = c.createGain(), bars = Math.max(1, L.bars || 1);
+    const barRaw = L.once ? 4 * 60 / 112 : (L.end - L.start) / bars, off = L.start + (L.once ? 0 : from * barRaw);
+    const raw = L.once ? buf.duration - L.start : (bars - from) * barRaw, len = raw / rate;
     src.buffer = buf; src.playbackRate.value = rate;
     g.gain.setValueAtTime(0, when); g.gain.linearRampToValueAtTime(1, when + 0.012);
     if (!L.once) { g.gain.setValueAtTime(1, when + len - 0.004); g.gain.linearRampToValueAtTime(0, when + len + 0.03); }   // a tiny overlap hides the seam
-    src.connect(g); g.connect(S.lp); src.start(when, L.start, L.once ? raw : raw + 0.05 * rate);
-    S.passes++; const bars = Math.max(1, L.bars || 1);
-    return { sec, when, len, end: when + len, src, g, once: !!L.once, beat: L.once ? 60 / 112 / rate : len / (bars * 4) };
+    src.connect(g); g.connect(S.lp); src.start(when, off, L.once ? raw : raw + 0.05 * rate);
+    S.passes++;
+    return { sec, L, v: L.v, when, len, end: when + len, src, g, once: !!L.once, from, bars, bar: barRaw / rate, beat: barRaw / rate / 4, round: 0, root: SONG.songs[(L.song || 1) - 1].root };
   }
-  // keep the song going in section 'sec' until 'until'. Returns the pass it just started (or null), so the mood layers can sync to it.
+  // where to (re)enter a section: remembered spot if recent, else bar 0 of the next version in turn
+  function enter(sec, now) {
+    const list = songLoopsFor(sec); if (!list.length) { return null; }
+    const m = S.mem[sec];
+    if (m && now - m.t <= SONG.remember) { const L = list.find((x) => x.v === m.v); if (L && !L.once) { return { L, from: m.bar % Math.max(1, L.bars), round: m.round }; } }
+    const k = (S.nextVar[sec] || 0) % list.length; S.nextVar[sec] = k + 1; return { L: list[k], from: 0, round: 0 };
+  }
+  // keep the music going in section 'sec' until 'until'. Returns the pass it just started (or null) so the mood layers can sync to it.
   S.run = (sec, until, rate, nowIn) => {   // nowIn: only for offline previews (their clock doesn't move)
     const now = nowIn === undefined ? c.currentTime : nowIn, P = S.pass;
-    if (!SONG.loops[sec]) { return null; }
-    if (!P || (P.end < now - 0.05 && !(P.once && P.sec === sec))) { S.pass = play(sec, now + 0.05, rate); S.sec = sec; level(sec, now); return S.pass; }
+    if (!P || (P.end < now - 0.05 && !(P.once && P.sec === sec))) {
+      const e = enter(sec, now); if (!e) { return null; }
+      S.pass = play(sec, e.L, now + 0.05, rate, e.from); S.pass.round = e.round; S.sec = sec; level(sec, now); return S.pass;
+    }
     if (sec !== S.sec) {
       let at;
       if (P.when > now) { at = P.when; P.src.stop(0); }   // a pass queued but not started yet: cancel it, switch exactly there
-      else { const bar = P.beat * 4; at = P.once ? now + 0.05 : P.when + Math.ceil((now + 0.06 - P.when) / bar) * bar; }
+      else { at = P.once ? now + 0.05 : P.when + Math.ceil((now + 0.06 - P.when) / P.bar) * P.bar; }
+      const barsIn = P.once ? 0 : Math.round((at - P.when) / P.bar);
+      if (!P.once) { S.mem[P.sec] = { v: P.v, bar: (P.from + barsIn) % P.bars, round: P.round, t: now }; }   // remember the spot
       if (P.when <= now) { P.g.gain.cancelScheduledValues(at); P.g.gain.setValueAtTime(1, at); P.g.gain.linearRampToValueAtTime(0, at + P.beat * SONG.fade); P.src.stop(at + P.beat * SONG.fade + 0.05); }
       if (S.prev && S.prev !== P && S.prev.when <= now) { S.prev.src.stop(at); }
-      S.prev = P; S.pass = play(sec, at, rate); S.sec = sec; level(sec, at); S.lastSwitch = { from: P.sec, at, barsIn: P.once ? 0 : (at - P.when) / (P.beat * 4) }; return S.pass;
+      const e = enter(sec, now); if (!e) { return null; }
+      S.prev = P; S.pass = play(sec, e.L, at, rate, e.from); S.pass.round = e.round; S.sec = sec; level(sec, at);
+      S.lastSwitch = { from: P.sec, at, barsIn: P.once ? 0 : (at - P.when) / P.bar }; return S.pass;
     }
-    if (!P.once && P.end < until) { S.prev = P; S.pass = play(sec, P.end, rate); return S.pass; }
+    if (!P.once && P.end < until) {   // the loop came round: same version again, or (every SONG.vary rounds) the other song's version
+      const list = songLoopsFor(sec); let L = P.L, round = P.round + 1;
+      if (SONG.vary > 0 && round >= SONG.vary && list.length > 1) { const k = (list.findIndex((x) => x.v === P.v) + 1) % list.length; L = list[k]; round = 0; }
+      S.prev = P; S.pass = play(sec, L, P.end, rate, 0); S.pass.round = round; return S.pass;
+    }
     return null;
   };
   return S;
 }
-// load the song once: assets/music/<file> next to the page, else <file> uploaded to the p5 editor. Missing = composed music.
+// load the songs once: assets/music/<file> next to the page, else <file> uploaded to the p5 editor. None found = composed music.
 function songLoad() {
-  if (SND.songState) { return; } SND.songState = 'loading';
-  const tries = ['assets/music/' + SONG.file, SONG.file];
-  const next = () => {
-    const u = tries.shift(); if (!u) { SND.songState = 'missing'; return; }
-    fetch(u).then((r) => { if (!r.ok) { throw new Error(r.status); } return r.arrayBuffer(); })
-      .then((ab) => SND.ctx.decodeAudioData(ab)).then((buf) => { SND.songBuf = buf; SND.songState = 'ready'; }).catch(next);
-  };
-  try { next(); } catch (_) { SND.songState = 'missing'; }
+  if (SND.songState) { return; } SND.songState = 'loading'; SND.songBufs = []; let left = SONG.songs.length;
+  const done = () => { left--; if (left <= 0) { SND.songState = SND.songBufs.some((b) => b) ? 'ready' : 'missing'; } };
+  SONG.songs.forEach((sg, i) => {
+    const tries = ['assets/music/' + sg.file, sg.file];
+    const next = () => {
+      const u = tries.shift(); if (!u) { done(); return; }
+      fetch(u).then((r) => { if (!r.ok) { throw new Error(r.status); } return r.arrayBuffer(); })
+        .then((ab) => SND.ctx.decodeAudioData(ab)).then((buf) => { SND.songBufs[i] = buf; done(); }).catch(next);
+    };
+    try { next(); } catch (_) { done(); }
+  });
 }
 function musicTick() {
   if (!SND.ctx || SND.ctx.state !== 'running') { return; }   // browsers allow sound only after the first tap
   if (!SND.band) { SND.bandOut = SND.ctx.createGain(); SND.bandOut.connect(SND.ctx.destination); SND.band = makeMusic(SND.ctx, SND.bandOut); }
   const on = SND.music ? 1 : 0.0001; if (SND.bandLevel !== on) { SND.bandLevel = on; SND.bandOut.gain.setTargetAtTime(on, SND.ctx.currentTime, 0.15); }
   if (!SND.music) { return; }
-  if (SONG.on) { songLoad(); if (SND.songState === 'loading') { return; } }   // a moment of quiet while the song loads
-  const B = SND.band, sec = musicSection(), m = moodsNow(sec), now = SND.ctx.currentTime;
+  if (SONG.on) { songLoad(); if (SND.songState === 'loading') { return; } }   // a moment of quiet while the songs load
+  const B = SND.band, now = SND.ctx.currentTime;
+  SND.settle = SND.settle || {}; const sec = musicSettle(musicSection(), now, SND.settle), m = moodsNow(sec);
   B.mood = m; B.mix(musicMix(m), now); B.open = 1 + m.calm * 0.8;
   B.speed = timerOn() && G.room ? Math.max(0, Math.min(1, 1 - turnsLeft() / (SETTINGS.timer.turns * SETTINGS.timer.alarmAllAt))) : 0;
-  if (SONG.on && SND.songBuf) {
-    if (!SND.song) { SND.song = makeSongPlayer(SND.ctx, SND.bandOut, SND.songBuf); }
+  if (SONG.on && SND.songState === 'ready') {
+    if (!SND.song) { SND.song = makeSongPlayer(SND.ctx, SND.bandOut); }
     const rate = sec === 'dock' ? 1 + (SONG.speedUp - 1) * B.speed : 1, pass = SND.song.run(sec, now + 0.2, rate);
-    B.moodOnly = true; B.root = SONG.root; B.tune = rate;
-    if (pass) { B.bpmOverride = 60 / pass.beat; B.next = pass.when; B.step = 0; B.bar = 0; B.sec = sec; }   // mood layers lock to the song's bar
+    B.moodOnly = true; B.tune = rate;
+    if (pass) { B.root = pass.root; B.bpmOverride = 60 / pass.beat; B.next = pass.when; B.step = 0; B.bar = 0; B.sec = sec; }   // mood layers lock to the song's bar and key
     if (!(SND.song.pass && SND.song.pass.once)) { B.run(sec, now + 0.15); }
     return;
   }
@@ -1948,13 +2009,13 @@ async function renderMusic(sec, seconds, moods, speed) {
 // PREVIEW of the SONG as the game would play it: steps = [[section, seconds, moods, rate], ...], switching like the real game.
 async function renderSongTour(steps) {
   const sr = 44100, total = steps.reduce((a, st) => a + st[1], 0) + 3, c = new OfflineAudioContext(2, Math.ceil(sr * total), sr);
-  const band = makeMusic(c, c.destination), song = makeSongPlayer(c, c.destination, SND.songBuf);
-  band.moodOnly = true; band.root = SONG.root; let t = 0.05;
-  for (const [sec, secs, moods, rate] of steps) {
+  const band = makeMusic(c, c.destination), song = makeSongPlayer(c, c.destination), st = {};
+  band.moodOnly = true; let t = 0.05;
+  for (const [want, secs, moods, rate] of steps) {
     const m = Object.assign({ tension: 0, heart: 0, hope: 0, clock: 0, calm: 0 }, moods || {}); band.mix(musicMix(m), t); band.open = 1 + m.calm * 0.8;
     for (const end = t + secs; t < end; t += 0.05) {
-      const pass = song.run(sec, t + 0.2, rate || 1, t); band.tune = rate || 1;
-      if (pass) { band.bpmOverride = 60 / pass.beat; band.next = pass.when; band.step = 0; band.bar = 0; band.sec = sec; }
+      const sec = musicSettle(want, t, st), pass = song.run(sec, t + 0.2, rate || 1, t); band.tune = rate || 1;
+      if (pass) { band.root = pass.root; band.bpmOverride = 60 / pass.beat; band.next = pass.when; band.step = 0; band.bar = 0; band.sec = sec; }
       if (!(song.pass && song.pass.once)) { band.run(sec, t + 0.15); }
     }
   }
