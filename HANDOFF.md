@@ -1,6 +1,6 @@
-# DO-T: Lost and Found — handoff
+# DO-T Rescue Rush — handoff
 
-**Status (v4.8, 2026-11-12):** fully playable start to finish; 23/23 headless checks pass (15/15 with `--no-song`). Not yet played by a child or on a real phone. Pouncer and Brute art are placeholders.
+**Status (v4.8.1, 2026-11-16; renamed from DO-T: Lost and Found):** fully playable start to finish; 23/23 headless checks pass (15/15 with `--no-song`). Not yet played by a child or on a real phone. Pouncer and Brute art are placeholders.
 
 ## The game
 DO-T wakes on The Dock of an AHAD station that is about to self-destruct (650 turns). Eight babies in glowing pods have drifted across a 4x4 grid of sectors plus three ducts. Every tap is one turn, then every enemy acts (Hoplite rules): moving IS attacking. DO-T carries up to 2 babies home; bringing all 8 back wins, or he can launch the escape pod early with fewer. Repairing a sector's circuit (a puzzle) turns its lights on, stops its alarm and gives an upgrade.

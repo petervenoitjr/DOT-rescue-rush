@@ -1,6 +1,8 @@
-# DO-T: Lost and Found
+# DO-T Rescue Rush
 
-A hex tactics game (Hoplite rules) aboard the space station from **All Humans Are Dead (AHAD)**. DO-T the robot rescues 8 babies before the station self-destructs. One file of plain **p5.js 2.3.4** (global mode) that pastes straight into the p5.js web editor. Owner: **Peter Venoit, Jr.** Version **4.8** (2026-11-12).
+A hex tactics game (Hoplite rules) aboard the space station from **All Humans Are Dead (AHAD)**. DO-T the robot rescues 8 babies before the station self-destructs. One file of plain **p5.js 2.3.4** (global mode) that pastes straight into the p5.js web editor. Owner: **Peter Venoit, Jr.** Version **4.8.1** (2026-11-16). Formerly *DO-T: Lost and Found* (renamed 2026-11-16).
+
+Repo: https://github.com/petervenoitjr/DOT-rescue-rush
 
 Live page (private, Peter's account): https://claude.ai/artifact/Si1ZmXPJCgSx5KqHKbUVPR
 
@@ -10,6 +12,7 @@ Live page (private, Peter's account): https://claude.ai/artifact/Si1ZmXPJCgSx5Kq
 - **p5 web editor safety:** every `for`/`while` body gets `{ }` braces. The only unbraced loops are inside the `DotRig` class, which is the AHAD rig copied **unchanged**; don't edit DotRig.
 - **Never name a global after a p5 function** (`floor`, `byte`, `screen`, `pop`, ...). p5 2.x defines many.
 - **Style is DOT-UI / AHAD** (the `dot-ui-style` and `ahad-*` skills): thin wide-spaced Exo 2 caps via `txt()`, chamfered outlines, colour = meaning (cyan normal, amber do-this-now, green safe/done, violet secondary, magenta alarm, red danger). Enemy, fist and crab art is copied from DO-T RUSH; keep it in step with that game.
+- **Name:** DO-T Rescue Rush. The title screen shows only RESCUE RUSH (`drawTitle()`); the full name is `THEME.title`, the page `<title>`, and the docs.
 - **Credit line** "Made by Peter Venoit, Jr. — 2026" stays on the title, pause and end screens (`SETTINGS.credit`).
 - **KJV scripture** is part of the game (title, circuits, win/lose). Quote KJV exactly; `DVERSES` holds them.
 - **Rocket fist = slingshot (v4.8, from Peter's DOT Blaster / Drag'n'Boom):** a pull that starts on DO-T (or anywhere after tapping FIST) aims; release launches. `fistFlight()` is the single source of truth for where a throw goes (enemy / wall / miss); `launchFist()` → `fistLands()` explodes (`SETTINGS.fist.blast`) and drops the fist for pickup. A pull shorter than `deadzone` is a normal tap. A throw straight into the wall beside DO-T is refused (no free blast at his feet).

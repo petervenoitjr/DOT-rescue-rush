@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""DO-T: Lost and Found - build.
+"""DO-T Rescue Rush - build.
 
   python3 tools/build.py
 

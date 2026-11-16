@@ -1,8 +1,8 @@
 {
-  "name": "dot-lost-and-found",
-  "version": "4.8.0",
+  "name": "dot-rescue-rush",
+  "version": "4.8.1",
   "private": true,
-  "description": "DO-T: Lost and Found - a hex tactics game (Hoplite rules) aboard the station from All Humans Are Dead. p5.js 2.3.4.",
+  "description": "DO-T Rescue Rush - a hex tactics game (Hoplite rules) aboard the station from All Humans Are Dead. p5.js 2.3.4.",
   "author": "Peter Venoit, Jr.",
   "scripts": {
     "test": "node tools/playtest.js",

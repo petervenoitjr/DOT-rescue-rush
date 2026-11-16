@@ -1,12 +1,12 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
-<title>DO-T: Lost and Found</title>
+<title>DO-T Rescue Rush</title>
 <meta name="author" content="Peter Venoit, Jr.">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@200;300;400;700&display=swap">
 <style>:root{color-scheme:dark}html,body{height:100%;background:#03060f;overflow:hidden;touch-action:none;-webkit-user-select:none;user-select:none}body{display:flex;align-items:center;justify-content:center}canvas{display:block}</style>
 <script src="https://cdn.jsdelivr.net/npm/p5@2.3.4/lib/p5.min.js"></script>
 <script>
 // =====================================================================
-//  DO-T: LOST AND FOUND  -  a hex tactics game (Hoplite rules) aboard the station from All Humans Are Dead
+//  DO-T RESCUE RUSH  -  a hex tactics game (Hoplite rules) aboard the station from All Humans Are Dead
 //  Made by Peter Venoit, Jr. - 2026
 //  v4 (2026-11-10): DOT-UI look, AHAD Biter / Beamer / Rocket Fist / Crab art from DO-T RUSH, 6 bug fixes, playtest log.
 //  v4.3 (2026-11-12): DO-T RUSH sound (its beeps + victory.m4a; assets/sfx packed by tools/build.py), SOUND / MUSIC toggles.
@@ -17,6 +17,7 @@
 //  v4.7.1 (2026-11-12): phone sound fix: unlock on the END of a tap (touchend/pointerup/click), silent <audio> keeps iPhone Web Audio on with the silent switch, resume after interruptions; AUDIO status line in the pause menu.
 //  v4.7.2 (2026-11-12): title screen plays the composed Exploring music with the enemy-creeping-close tension layer (SONG.composed), Peter's pick.
 //  v4.8 (2026-11-12): ROCKET FIST = the DOT Blaster Drag'n'Boom slingshot: pull back from DO-T, let go; the big fist flies free and EXPLODES on the first enemy or wall (blast radius 1); it can miss. SETTINGS.fist.
+//  v4.8.1 (2026-11-16): renamed DO-T Rescue Rush (was DO-T: Lost and Found); the title screen shows RESCUE RUSH.
 //  Paste this whole file into the p5.js web editor (p5 2.x) as sketch.js.
 // =====================================================================
 
@@ -802,8 +803,8 @@ const BABY_RIGS = [];
 
 const THEME = {
   font: 'Exo 2',
-  title: 'DO-T',
-  tagline: 'LOST AND FOUND  ·  a station hex tactics game',
+  title: 'DO-T Rescue Rush',   // the game's name (the title screen shows only RESCUE RUSH)
+  tagline: 'RESCUE RUSH  ·  a station hex tactics game',
   titleVerse: DVERSES.title,
   pebbles: false, ammoBlessing: 1, siteFlow: 'quiz', podLaunch: true,
   puzzles: ['dots', 'math', 'colors'], cableColors: ['#19E3FF', '#FFB938', '#FF3FD0', '#3CFFB0'],
@@ -2356,8 +2357,8 @@ function credit(y) { txt(SETTINGS.credit.toUpperCase(), W / 2, y, 8, hexA(TR.am,
 
 function drawTitle() {
   THEME.titleArt(G.t);
-  txt('DO-T', W / 2, 468, 56, '#FFFFFF', CENTER, 200, 18);
-  txt('LOST AND FOUND', W / 2, 522, 22, TR.cy2, CENTER, 200, 10);
+  txt('RESCUE', W / 2, 452, 50, '#FFFFFF', CENTER, 200, 16);   // the title: RESCUE RUSH only
+  txt('RUSH', W / 2, 512, 50, TR.cy2, CENTER, 200, 16);
   rule(W / 2, 548, 120);
   txt('A DO-T STORY  //  ALL HUMANS ARE DEAD', W / 2, 566, 9, hexA(TR.am, 0.85), CENTER, 400, 3);
   fill(TR_TXT); wrapText(THEME.titleVerse, 56, 588, W - 112, 14, 20);

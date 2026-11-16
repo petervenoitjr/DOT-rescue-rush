@@ -1,5 +1,5 @@
 // =====================================================================
-//  DO-T: LOST AND FOUND  -  headless smoke test
+//  DO-T RESCUE RUSH  -  headless smoke test
 //  Opens dot_hex_page.html in headless Chromium and checks every major system.
 //
 //  Setup (once, from the project folder):
