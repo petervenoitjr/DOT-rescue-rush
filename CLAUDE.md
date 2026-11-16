@@ -43,7 +43,7 @@ Publishing to the artifact: send `dot_hex_publish.html` plus `assets/music/AHAD_
 | File | What it is |
 |---|---|
 | `sketch_dot_hex.js` | The whole game (v4.8). Sections in order: SETTINGS (+ DEBUG_SCENARIOS, FOES, BLESSINGS, BIOMES, WORLD) → DotRig (AHAD rig, unchanged) → THEME (DO-T look, text, sounds) → DOT-UI kit → AHAD art (Biter, Beamer, Rocket Fist, Crab) → hex engine (maths, world gen, player turn, zap preview, enemy turn, alarms, puzzles, save/log, input, drawing, screens). |
-| `dot_hex_page.html` | Standalone page: open it to play. Generated. |
+| `dot_hex_page.html`, `index.html` | Standalone page: open it to play (index.html is the same file, for the LightHeart Labs site build). Generated. |
 | `dot_hex_publish.html` | Page body for the claude.ai artifact. Generated. |
 | `assets/sfx/` | Sound effects (DO-T RUSH names), packed into the sketch by the build. Has `victory.m4a`; README lists the other names. |
 | `assets/music/` | `AHAD_every_mood.mp3` + `AHAD_every_mood2.mp3` (the Suno songs A and B, SONG mode) + README (how to remap) + `source/AHAD.m4a` (reference, unused). |

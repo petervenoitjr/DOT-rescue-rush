@@ -9,7 +9,7 @@
 2. Rebuilds dot_hex_page.html and dot_hex_publish.html from the sketch.
 Only the block below the SOUND DATA marker in the sketch is rewritten.
 """
-import base64, json, os, sys
+import base64, json, os, shutil, sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SKETCH = os.path.join(ROOT, 'sketch_dot_hex.js')
@@ -47,6 +47,7 @@ def main():
     pub_head = open(pub, encoding='utf8').read().split('\n')[:5]
     open(page, 'w', encoding='utf8').write('\n'.join(page_head) + '\n<script>\n' + out + '</script></body></html>\n')
     open(pub, 'w', encoding='utf8').write('\n'.join(pub_head) + '\n<script>\n' + out + '</script>\n')
+    shutil.copy2(page, os.path.join(ROOT, 'index.html'))   # index.html = the standalone page (the LightHeart Labs site build expects this name)
     print('built: sketch %d bytes, %d sound file(s) packed (music is composed live in the sketch: no files)' % (len(out.encode('utf8')), len(embed)))
 
 
